@@ -52,6 +52,9 @@ generate_*.js
 .space/
 .npmignore
 
+# 1Password CLI plugin config (machine-specific)
+.op/
+
 # Personal files and reports
 CLAUDE.md
 *报告*.md
