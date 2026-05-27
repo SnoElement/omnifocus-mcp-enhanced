@@ -1,5 +1,6 @@
-import { RequestHandlerExtra } from '@modelcontextprotocol/sdk/shared/protocol.js';
-import { z } from 'zod';
+import type { RequestHandlerExtra } from '@modelcontextprotocol/sdk/shared/protocol.js';
+import type { ServerRequest, ServerNotification } from '@modelcontextprotocol/sdk/types.js';
+import { z } from 'zod/v3';
 
 import { readTaskAttachment, ReadTaskAttachmentResult, validateReadTaskAttachmentParams } from '../primitives/readTaskAttachment.js';
 import { formatAttachmentSize } from '../primitives/taskAttachments.js';
@@ -59,7 +60,7 @@ export function buildAttachmentContentResponse(result: {
   return { content };
 }
 
-export async function handler(args: z.infer<typeof schema>, extra: RequestHandlerExtra) {
+export async function handler(args: z.infer<typeof schema>, extra: RequestHandlerExtra<ServerRequest, ServerNotification>) {
   const validation = validateReadTaskAttachmentParams(args);
   if (!validation.valid) {
     return {

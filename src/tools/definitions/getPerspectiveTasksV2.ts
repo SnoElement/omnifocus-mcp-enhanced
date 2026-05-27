@@ -1,4 +1,4 @@
-import { z } from 'zod';
+import { z } from 'zod/v3';
 import { getPerspectiveTasksV2 } from '../primitives/getPerspectiveTasksV2.js';
 
 // 基于 OmniFocus 4.2+ 新 API 的真正透视访问工具

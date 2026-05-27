@@ -1,4 +1,4 @@
-import { z } from 'zod';
+import { z } from 'zod/v3';
 import { getTodayCompletedTasks } from '../primitives/getTodayCompletedTasks.js';
 
 export const schema = z.object({

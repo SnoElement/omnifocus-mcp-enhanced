@@ -1,6 +1,7 @@
-import { z } from 'zod';
+import { z } from 'zod/v3';
 import { filterTasks } from '../primitives/filterTasks.js';
-import { RequestHandlerExtra } from '@modelcontextprotocol/sdk/shared/protocol.js';
+import type { RequestHandlerExtra } from '@modelcontextprotocol/sdk/shared/protocol.js';
+import type { ServerRequest, ServerNotification } from '@modelcontextprotocol/sdk/types.js';
 
 // 任务状态枚举
 const TaskStatusEnum = z.enum([
@@ -72,7 +73,7 @@ export const schema = z.object({
   sortOrder: z.enum(["asc", "desc"]).optional().describe("Sort order (default: asc)")
 });
 
-export async function handler(args: z.infer<typeof schema>, extra: RequestHandlerExtra) {
+export async function handler(args: z.infer<typeof schema>, extra: RequestHandlerExtra<ServerRequest, ServerNotification>) {
   try {
     const result = await filterTasks(args);
 

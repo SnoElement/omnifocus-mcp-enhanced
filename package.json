@@ -16,12 +16,12 @@
     "test": "echo \"Test passed - manual testing required with OmniFocus\""
   },
   "dependencies": {
-    "@modelcontextprotocol/sdk": "^1.8.0",
-    "zod": "^3.22.4"
+    "@modelcontextprotocol/sdk": "^1.29.0",
+    "zod": "^3.25.0"
   },
   "devDependencies": {
     "@types/node": "^20.11.19",
-    "typescript": "^5.3.3"
+    "typescript": "^5.9.3"
   },
   "repository": {
     "type": "git",
