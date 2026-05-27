@@ -83,6 +83,34 @@ test('applyClientSideFilters applies addedToday', () => {
   assert.equal(filtered[0].id, 'today');
 });
 
+test('applyClientSideFilters applies addedBefore as exclusive upper bound', () => {
+  const tasks = [
+    { id: 'before', name: 'before', addedDate: '2026-02-10T09:00:00.000Z', tags: [] },
+    { id: 'after', name: 'after', addedDate: '2026-02-15T09:00:00.000Z', tags: [] },
+  ];
+
+  const filtered = applyClientSideFilters(tasks as any[], {
+    addedBefore: '2026-02-12',
+  });
+
+  assert.equal(filtered.length, 1);
+  assert.equal(filtered[0].id, 'before');
+});
+
+test('applyClientSideFilters applies modifiedBefore as exclusive upper bound', () => {
+  const tasks = [
+    { id: 'old', name: 'old', modifiedDate: '2026-02-10T09:00:00.000Z', tags: [] },
+    { id: 'recent', name: 'recent', modifiedDate: '2026-02-25T09:00:00.000Z', tags: [] },
+  ];
+
+  const filtered = applyClientSideFilters(tasks as any[], {
+    modifiedBefore: '2026-02-20',
+  });
+
+  assert.equal(filtered.length, 1);
+  assert.equal(filtered[0].id, 'old');
+});
+
 test('applyClientSideFilters applies addedAfter as exclusive lower bound', () => {
   const tasks = [
     { id: 'before', name: 'before', addedDate: '2026-02-10T09:00:00.000Z', tags: [] },

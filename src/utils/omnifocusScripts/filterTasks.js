@@ -196,6 +196,12 @@
           if (filters.completedYesterday && !isYesterday(task.completionDate)) {
             return false;
           }
+          if (filters.completedThisWeek && !isThisWeek(task.completionDate)) {
+            return false;
+          }
+          if (filters.completedThisMonth && !isThisMonth(task.completionDate)) {
+            return false;
+          }
           if (filters.completedBefore && task.completionDate &&
               new Date(task.completionDate) >= new Date(filters.completedBefore)) {
             return false;

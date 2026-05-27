@@ -153,7 +153,23 @@ function shouldApplyClientSideFilters(options: FilterTasksOptions): boolean {
     options.plannedThisWeek ||
     options.plannedThisMonth ||
     options.plannedBefore ||
-    options.plannedAfter
+    options.plannedAfter ||
+    options.addedToday ||
+    options.addedThisWeek ||
+    options.addedThisMonth ||
+    options.addedBefore ||
+    options.addedAfter ||
+    options.modifiedToday ||
+    options.modifiedThisWeek ||
+    options.modifiedThisMonth ||
+    options.modifiedBefore ||
+    options.modifiedAfter ||
+    options.completedToday ||
+    options.completedYesterday ||
+    options.completedThisWeek ||
+    options.completedThisMonth ||
+    options.completedBefore ||
+    options.completedAfter
   );
 }
 
