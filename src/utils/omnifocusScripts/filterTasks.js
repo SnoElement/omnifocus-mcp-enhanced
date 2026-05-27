@@ -6,9 +6,9 @@
     
     const filters = {
       taskStatus: args.taskStatus || null,
-      perspective: args.perspective || "all", 
+      perspective: args.perspective || "all",
       flagged: args.flagged !== undefined ? args.flagged : null,
-      
+
       // 完成日期过滤器
       completedToday: args.completedToday || false,
       completedYesterday: args.completedYesterday || false,
@@ -16,7 +16,21 @@
       completedThisMonth: args.completedThisMonth || false,
       completedBefore: args.completedBefore || null,
       completedAfter: args.completedAfter || null,
-      
+
+      // 创建日期过滤器
+      addedToday: args.addedToday || false,
+      addedThisWeek: args.addedThisWeek || false,
+      addedThisMonth: args.addedThisMonth || false,
+      addedBefore: args.addedBefore || null,
+      addedAfter: args.addedAfter || null,
+
+      // 修改日期过滤器
+      modifiedToday: args.modifiedToday || false,
+      modifiedThisWeek: args.modifiedThisWeek || false,
+      modifiedThisMonth: args.modifiedThisMonth || false,
+      modifiedBefore: args.modifiedBefore || null,
+      modifiedAfter: args.modifiedAfter || null,
+
       // 其他过滤器
       projectFilter: args.projectFilter || null,
       searchText: args.searchText || null,
@@ -64,24 +78,50 @@
       const checkDate = new Date(date);
       return checkDate >= yesterday && checkDate < today;
     }
+
+    function isThisWeek(date) {
+      if (!date) return false;
+      const now = new Date();
+      const dayOfWeek = now.getDay(); // Sunday = 0
+      const mondayOffset = (dayOfWeek + 6) % 7;
+      const weekStart = new Date(now);
+      weekStart.setDate(now.getDate() - mondayOffset);
+      weekStart.setHours(0, 0, 0, 0);
+      const weekEnd = new Date(weekStart);
+      weekEnd.setDate(weekStart.getDate() + 7);
+      const checkDate = new Date(date);
+      return checkDate >= weekStart && checkDate < weekEnd;
+    }
+
+    function isThisMonth(date) {
+      if (!date) return false;
+      const now = new Date();
+      const checkDate = new Date(date);
+      return checkDate.getFullYear() === now.getFullYear() &&
+             checkDate.getMonth() === now.getMonth();
+    }
     
     // 获取所有任务
     const allTasks = flattenedTasks;
     
     // 判断是否需要包含完成的任务
-    const wantsCompletedTasks = filters.completedToday || filters.completedYesterday || 
-                               filters.completedThisWeek || filters.completedThisMonth || 
+    const wantsCompletedTasks = filters.completedToday || filters.completedYesterday ||
+                               filters.completedThisWeek || filters.completedThisMonth ||
                                filters.completedBefore || filters.completedAfter;
-    const includeCompletedByStatus = filters.taskStatus && 
+    const wantsAddedFilter = filters.addedToday || filters.addedThisWeek ||
+                            filters.addedThisMonth || filters.addedBefore || filters.addedAfter;
+    const wantsModifiedFilter = filters.modifiedToday || filters.modifiedThisWeek ||
+                               filters.modifiedThisMonth || filters.modifiedBefore || filters.modifiedAfter;
+    const includeCompletedByStatus = filters.taskStatus &&
       (filters.taskStatus.includes("Completed") || filters.taskStatus.includes("Dropped"));
-    
-    // 选择任务集
+
+    // 选择任务集 - addedX/modifiedX 也包含已完成任务（与 completedX 行为一致）
     let availableTasks;
-    if (wantsCompletedTasks || includeCompletedByStatus) {
+    if (wantsCompletedTasks || wantsAddedFilter || wantsModifiedFilter || includeCompletedByStatus) {
       availableTasks = allTasks;
     } else {
-      availableTasks = allTasks.filter(task => 
-        task.taskStatus !== Task.Status.Completed && 
+      availableTasks = allTasks.filter(task =>
+        task.taskStatus !== Task.Status.Completed &&
         task.taskStatus !== Task.Status.Dropped
       );
     }
@@ -111,9 +151,9 @@
           if (taskStatus !== "Completed") {
             return false;
           }
-        } else {
-          // 排除完成任务（除非明确指定状态）
-          if (!includeCompletedByStatus && (taskStatus === "Completed" || taskStatus === "Dropped")) {
+        } else if (!wantsAddedFilter && !wantsModifiedFilter && !includeCompletedByStatus) {
+          // 排除完成任务（除非明确指定状态或正在按 added/modified 过滤）
+          if (taskStatus === "Completed" || taskStatus === "Dropped") {
             return false;
           }
         }
@@ -156,16 +196,38 @@
           if (filters.completedYesterday && !isYesterday(task.completionDate)) {
             return false;
           }
-          if (filters.completedBefore && task.completionDate && 
+          if (filters.completedBefore && task.completionDate &&
               new Date(task.completionDate) >= new Date(filters.completedBefore)) {
             return false;
           }
-          if (filters.completedAfter && task.completionDate && 
+          if (filters.completedAfter && task.completionDate &&
               new Date(task.completionDate) <= new Date(filters.completedAfter)) {
             return false;
           }
         }
-        
+
+        // 创建日期过滤
+        if (wantsAddedFilter) {
+          const added = task.added;
+          if (!added) return false;
+          if (filters.addedToday && !isToday(added)) return false;
+          if (filters.addedThisWeek && !isThisWeek(added)) return false;
+          if (filters.addedThisMonth && !isThisMonth(added)) return false;
+          if (filters.addedBefore && new Date(added) >= new Date(filters.addedBefore)) return false;
+          if (filters.addedAfter && new Date(added) <= new Date(filters.addedAfter)) return false;
+        }
+
+        // 修改日期过滤
+        if (wantsModifiedFilter) {
+          const modified = task.modified;
+          if (!modified) return false;
+          if (filters.modifiedToday && !isToday(modified)) return false;
+          if (filters.modifiedThisWeek && !isThisWeek(modified)) return false;
+          if (filters.modifiedThisMonth && !isThisMonth(modified)) return false;
+          if (filters.modifiedBefore && new Date(modified) >= new Date(filters.modifiedBefore)) return false;
+          if (filters.modifiedAfter && new Date(modified) <= new Date(filters.modifiedAfter)) return false;
+        }
+
         return true;
       } catch (error) {
         return false;
@@ -177,6 +239,18 @@
       filteredTasks.sort((a, b) => {
         const dateA = a.completionDate || new Date('1900-01-01');
         const dateB = b.completionDate || new Date('1900-01-01');
+        return filters.sortOrder === "desc" ? dateB - dateA : dateA - dateB;
+      });
+    } else if (filters.sortBy === "addedDate") {
+      filteredTasks.sort((a, b) => {
+        const dateA = a.added || new Date('1900-01-01');
+        const dateB = b.added || new Date('1900-01-01');
+        return filters.sortOrder === "desc" ? dateB - dateA : dateA - dateB;
+      });
+    } else if (filters.sortBy === "modifiedDate") {
+      filteredTasks.sort((a, b) => {
+        const dateA = a.modified || new Date('1900-01-01');
+        const dateB = b.modified || new Date('1900-01-01');
         return filters.sortOrder === "desc" ? dateB - dateA : dateA - dateB;
       });
     } else {
@@ -217,6 +291,8 @@
           deferDate: formatDate(task.deferDate),
           plannedDate: formatDate(task.plannedDate),
           completedDate: formatDate(task.completionDate),
+          addedDate: formatDate(task.added),
+          modifiedDate: formatDate(task.modified),
           estimatedMinutes: task.estimatedMinutes,
           projectId: task.containingProject ? task.containingProject.id.primaryKey : null,
           projectName: task.containingProject ? task.containingProject.name : null,

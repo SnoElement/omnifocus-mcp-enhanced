@@ -46,6 +46,20 @@ export interface FilterTasksOptions {
   completedThisWeek?: boolean;
   completedThisMonth?: boolean;
 
+  // 🆕 创建日期过滤
+  addedBefore?: string;
+  addedAfter?: string;
+  addedToday?: boolean;
+  addedThisWeek?: boolean;
+  addedThisMonth?: boolean;
+
+  // 🔄 修改日期过滤
+  modifiedBefore?: string;
+  modifiedAfter?: string;
+  modifiedToday?: boolean;
+  modifiedThisWeek?: boolean;
+  modifiedThisMonth?: boolean;
+
   // 🚩 其他维度
   flagged?: boolean;
   searchText?: string;
@@ -147,7 +161,11 @@ function sortTasks(tasks: any[], sortBy: string, sortOrder: 'asc' | 'desc'): any
   const copy = [...tasks];
   const direction = sortOrder === 'desc' ? -1 : 1;
 
-  const compareDate = (a: any, b: any, key: 'dueDate' | 'deferDate' | 'plannedDate' | 'completedDate') => {
+  const compareDate = (
+    a: any,
+    b: any,
+    key: 'dueDate' | 'deferDate' | 'plannedDate' | 'completedDate' | 'addedDate' | 'modifiedDate',
+  ) => {
     const dateA = parseDate(a?.[key]);
     const dateB = parseDate(b?.[key]);
     const valueA = dateA ? dateA.getTime() : Number.POSITIVE_INFINITY;
@@ -165,6 +183,10 @@ function sortTasks(tasks: any[], sortBy: string, sortOrder: 'asc' | 'desc'): any
         return compareDate(a, b, 'plannedDate');
       case 'completedDate':
         return compareDate(a, b, 'completedDate');
+      case 'addedDate':
+        return compareDate(a, b, 'addedDate');
+      case 'modifiedDate':
+        return compareDate(a, b, 'modifiedDate');
       case 'flagged': {
         const flaggedA = a?.flagged ? 1 : 0;
         const flaggedB = b?.flagged ? 1 : 0;
@@ -287,7 +309,83 @@ export function applyClientSideFilters(tasks: any[], options: FilterTasksOptions
     }
   }
 
+  filteredTasks = applyDateRangeFilters(filteredTasks, options, 'addedDate', {
+    today: options.addedToday,
+    thisWeek: options.addedThisWeek,
+    thisMonth: options.addedThisMonth,
+    before: options.addedBefore,
+    after: options.addedAfter,
+  });
+
+  filteredTasks = applyDateRangeFilters(filteredTasks, options, 'modifiedDate', {
+    today: options.modifiedToday,
+    thisWeek: options.modifiedThisWeek,
+    thisMonth: options.modifiedThisMonth,
+    before: options.modifiedBefore,
+    after: options.modifiedAfter,
+  });
+
   return filteredTasks;
+}
+
+interface DateRangeFilters {
+  today?: boolean;
+  thisWeek?: boolean;
+  thisMonth?: boolean;
+  before?: string;
+  after?: string;
+}
+
+function applyDateRangeFilters(
+  tasks: any[],
+  _options: FilterTasksOptions,
+  fieldKey: string,
+  filters: DateRangeFilters,
+): any[] {
+  let result = tasks;
+
+  if (filters.today) {
+    result = result.filter(task => {
+      const date = parseDate(task?.[fieldKey]);
+      return date ? isDateInTodayRange(date) : false;
+    });
+  }
+
+  if (filters.thisWeek) {
+    result = result.filter(task => {
+      const date = parseDate(task?.[fieldKey]);
+      return date ? isDateInCurrentWeek(date) : false;
+    });
+  }
+
+  if (filters.thisMonth) {
+    result = result.filter(task => {
+      const date = parseDate(task?.[fieldKey]);
+      return date ? isDateInCurrentMonth(date) : false;
+    });
+  }
+
+  if (filters.before) {
+    const before = parseDate(filters.before);
+    if (before) {
+      result = result.filter(task => {
+        const date = parseDate(task?.[fieldKey]);
+        return date ? date < before : false;
+      });
+    }
+  }
+
+  if (filters.after) {
+    const after = parseDate(filters.after);
+    if (after) {
+      result = result.filter(task => {
+        const date = parseDate(task?.[fieldKey]);
+        return date ? date > after : false;
+      });
+    }
+  }
+
+  return result;
 }
 
 export async function filterTasks(options: FilterTasksOptions = {}): Promise<string> {
@@ -302,7 +400,7 @@ export async function filterTasks(options: FilterTasksOptions = {}): Promise<str
     } = options;
 
     const needsClientSideFiltering = shouldApplyClientSideFilters(options);
-    const needsClientSideSorting = !['name', 'completedDate'].includes(sortBy);
+    const needsClientSideSorting = !['name', 'completedDate', 'addedDate', 'modifiedDate'].includes(sortBy);
     const sourceLimit = (needsClientSideFiltering || needsClientSideSorting) ? Math.max(limit * 20, 1000) : limit;
 
     // 执行常规过滤脚本

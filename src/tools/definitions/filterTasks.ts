@@ -58,6 +58,20 @@ export const schema = z.object({
   completedThisWeek: z.boolean().optional().describe("Show tasks completed this week"),
   completedThisMonth: z.boolean().optional().describe("Show tasks completed this month"),
 
+  // 🆕 创建日期过滤
+  addedBefore: z.string().optional().describe("Show tasks added before this date (ISO format: YYYY-MM-DD). Like completedX filters, this also includes completed tasks in the candidate set."),
+  addedAfter: z.string().optional().describe("Show tasks added after this date (ISO format: YYYY-MM-DD). Like completedX filters, this also includes completed tasks in the candidate set."),
+  addedToday: z.boolean().optional().describe("Show tasks added today. Includes completed tasks added today."),
+  addedThisWeek: z.boolean().optional().describe("Show tasks added this week. Includes completed tasks added this week."),
+  addedThisMonth: z.boolean().optional().describe("Show tasks added this month. Includes completed tasks added this month."),
+
+  // 🔄 修改日期过滤 (any mutation: edit, retag, complete, reopen, defer change)
+  modifiedBefore: z.string().optional().describe("Show tasks modified before this date (ISO format: YYYY-MM-DD). Modification covers any change including completion, edits, tag changes, and date changes. Like completedX filters, this also includes completed tasks in the candidate set."),
+  modifiedAfter: z.string().optional().describe("Show tasks modified after this date (ISO format: YYYY-MM-DD). Modification covers any change including completion, edits, tag changes, and date changes. Useful for incremental sync ('what changed since X'). Like completedX filters, this also includes completed tasks in the candidate set."),
+  modifiedToday: z.boolean().optional().describe("Show tasks modified today (any mutation). Includes completed tasks."),
+  modifiedThisWeek: z.boolean().optional().describe("Show tasks modified this week (any mutation). Includes completed tasks."),
+  modifiedThisMonth: z.boolean().optional().describe("Show tasks modified this month (any mutation). Includes completed tasks."),
+
   // 🚩 其他维度
   flagged: z.boolean().optional().describe("Filter by flagged status"),
   searchText: z.string().optional().describe("Search in task names and notes"),
@@ -69,7 +83,7 @@ export const schema = z.object({
 
   // 📊 输出控制
   limit: z.number().max(1000).optional().describe("Maximum number of tasks to return (default: 100)"),
-  sortBy: z.enum(["name", "dueDate", "deferDate", "plannedDate", "completedDate", "flagged", "project"]).optional().describe("Sort results by field"),
+  sortBy: z.enum(["name", "dueDate", "deferDate", "plannedDate", "completedDate", "addedDate", "modifiedDate", "flagged", "project"]).optional().describe("Sort results by field"),
   sortOrder: z.enum(["asc", "desc"]).optional().describe("Sort order (default: asc)")
 });
 

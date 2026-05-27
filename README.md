@@ -302,7 +302,24 @@ filter_tasks {
   "projectFilter": "Website Redesign",
   "taskStatus": ["Overdue", "DueSoon"]
 }
+
+# Tasks added this week (creation-date filter)
+filter_tasks {
+  "addedThisWeek": true,
+  "sortBy": "addedDate",
+  "sortOrder": "desc"
+}
+
+# Incremental sync — anything modified since last poll (any change: edit, complete, retag, defer)
+filter_tasks {
+  "modifiedAfter": "2026-05-25",
+  "sortBy": "modifiedDate"
+}
 ```
+
+> **Note on `addedX` and `modifiedX`:** like `completedX`, these filters automatically include
+> completed tasks in the candidate set so you can sync everything that changed. To restrict to
+> currently-incomplete tasks, also pass `"taskStatus": ["Available", "Next", "Blocked", "DueSoon", "Overdue"]`.
 
 ### 4. 🌟 **NEW: Native Custom Perspective Access**
 
