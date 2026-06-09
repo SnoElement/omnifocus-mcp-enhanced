@@ -2,32 +2,42 @@ import { z } from 'zod/v3';
 import { getFlaggedTasks } from '../primitives/getFlaggedTasks.js';
 import type { RequestHandlerExtra } from '@modelcontextprotocol/sdk/shared/protocol.js';
 import type { ServerRequest, ServerNotification } from '@modelcontextprotocol/sdk/types.js';
+import { sortBySchema, sortOrderSchema, taskListOutputSchema } from '../../utils/readToolOutput.js';
 
 export const schema = z.object({
   hideCompleted: z.boolean().optional().describe("Set to false to show completed flagged tasks (default: true)"),
-  projectFilter: z.string().optional().describe("Filter flagged tasks by project name (optional)")
+  projectFilter: z.string().optional().describe("Filter flagged tasks by project name (optional)"),
+  sortBy: sortBySchema.optional().describe("Sort field (default: name)"),
+  sortOrder: sortOrderSchema.optional().describe("Sort order (default: asc)"),
+  limit: z.number().min(1).max(1000).optional().describe("Maximum number of tasks to return (default: 100)")
 });
+
+export const outputSchema = taskListOutputSchema;
 
 export async function handler(args: z.infer<typeof schema>, extra: RequestHandlerExtra<ServerRequest, ServerNotification>) {
   try {
     const result = await getFlaggedTasks({
-      hideCompleted: args.hideCompleted !== false, // Default to true
-      projectFilter: args.projectFilter
+      hideCompleted: args.hideCompleted !== false,
+      projectFilter: args.projectFilter,
+      sortBy: args.sortBy,
+      sortOrder: args.sortOrder,
+      limit: args.limit
     });
-    
+
     return {
-      content: [{
-        type: "text" as const,
-        text: result
-      }]
+      content: [{ type: "text" as const, text: result.formatted }],
+      structuredContent: {
+        success: true,
+        tasks: result.tasks,
+        count: result.tasks.length,
+        totalCount: result.totalCount
+      }
     };
   } catch (err: unknown) {
     const errorMessage = err instanceof Error ? err.message : 'Unknown error occurred';
     return {
-      content: [{
-        type: "text" as const,
-        text: `Error getting flagged tasks: ${errorMessage}`
-      }],
+      content: [{ type: "text" as const, text: `Error getting flagged tasks: ${errorMessage}` }],
+      structuredContent: { success: false, tasks: [], count: 0, totalCount: 0, error: errorMessage },
       isError: true
     };
   }

@@ -43,16 +43,36 @@
       throw new Error('Either taskId or taskName must be provided');
     }
 
-    const task = flattenedTasks.find(candidate => {
-      if (taskId) {
-        return candidate.id.primaryKey === taskId;
+    let task = null;
+
+    if (taskId) {
+      task = flattenedTasks.find(c => c.id.primaryKey === taskId) || null;
+      if (!task) {
+        const inbox = (typeof inboxTasks !== 'undefined') ? inboxTasks : [];
+        task = inbox.find(c => c.id.primaryKey === taskId) || null;
+      }
+      if (!task) {
+        throw new Error('Task not found with ID "' + taskId + '"');
+      }
+    } else {
+      const flatMatches = flattenedTasks.filter(c => c.name === taskName);
+      const inbox = (typeof inboxTasks !== 'undefined') ? inboxTasks : [];
+      const inboxMatches = inbox.filter(c => c.name === taskName);
+      const matches = flatMatches.concat(inboxMatches);
+
+      if (matches.length === 0) {
+        throw new Error('Task not found with name "' + taskName + '"');
       }
 
-      return candidate.name === taskName;
-    });
+      if (matches.length > 1) {
+        const summary = matches.slice(0, 5).map(m => {
+          const proj = m.containingProject ? m.containingProject.name : 'Inbox';
+          return m.id.primaryKey + ' (' + proj + ')';
+        }).join('; ');
+        throw new Error('Ambiguous match: ' + matches.length + ' tasks named "' + taskName + '". Use taskId to disambiguate. First matches: ' + summary);
+      }
 
-    if (!task) {
-      throw new Error('Task not found');
+      task = matches[0];
     }
 
     const parentTask = task.parent || null;

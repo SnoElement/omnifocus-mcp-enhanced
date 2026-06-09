@@ -13,6 +13,13 @@ export const schema = z.object({
   targetInbox: z.boolean().optional().describe('Move task to inbox')
 });
 
+export const outputSchema = z.object({
+  success: z.boolean(),
+  id: z.string().optional(),
+  name: z.string().optional(),
+  error: z.string().optional()
+});
+
 function formatDestination(args: z.infer<typeof schema>): string {
   if (args.targetInbox) {
     return 'inbox';
@@ -38,7 +45,8 @@ export async function handler(args: z.infer<typeof schema>, extra: RequestHandle
         content: [{
           type: 'text' as const,
           text: `✅ Task "${result.name || args.id || args.name}" moved successfully to ${formatDestination(args)}.`
-        }]
+        }],
+        structuredContent: { success: true, id: result.id, name: result.name }
       };
     }
 
@@ -47,6 +55,7 @@ export async function handler(args: z.infer<typeof schema>, extra: RequestHandle
         type: 'text' as const,
         text: `Failed to move task: ${result.error}`
       }],
+      structuredContent: { success: false, error: result.error },
       isError: true
     };
   } catch (err: unknown) {
@@ -58,6 +67,7 @@ export async function handler(args: z.infer<typeof schema>, extra: RequestHandle
         type: 'text' as const,
         text: `Error moving task: ${error.message}`
       }],
+      structuredContent: { success: false, error: error.message },
       isError: true
     };
   }

@@ -34,6 +34,15 @@ export const schema = z.object({
   newProjectStatus: z.enum(['active', 'completed', 'dropped', 'onHold']).optional().describe("New status for projects")
 });
 
+export const outputSchema = z.object({
+  success: z.boolean(),
+  id: z.string().optional(),
+  name: z.string().optional(),
+  itemType: z.enum(['task', 'project']),
+  changedProperties: z.string().optional(),
+  error: z.string().optional()
+});
+
 export async function handler(args: z.infer<typeof schema>, extra: RequestHandlerExtra<ServerRequest, ServerNotification>) {
   try {
     // Validate that either id or name is provided
@@ -43,15 +52,14 @@ export async function handler(args: z.infer<typeof schema>, extra: RequestHandle
           type: "text" as const,
           text: "Either id or name must be provided to edit an item."
         }],
+        structuredContent: { success: false, itemType: args.itemType, error: "Either id or name must be provided to edit an item." },
         isError: true
       };
     }
 
-    // Call the editItem function
     const result = await editItem(args as EditItemParams);
 
     if (result.success) {
-      // Item was edited successfully
       const itemTypeLabel = args.itemType === 'task' ? 'Task' : 'Project';
       let changedText = '';
 
@@ -63,10 +71,16 @@ export async function handler(args: z.infer<typeof schema>, extra: RequestHandle
         content: [{
           type: "text" as const,
           text: `✅ ${itemTypeLabel} "${result.name}" updated successfully${changedText}.`
-        }]
+        }],
+        structuredContent: {
+          success: true,
+          id: result.id,
+          name: result.name,
+          itemType: args.itemType,
+          changedProperties: result.changedProperties
+        }
       };
     } else {
-      // Item editing failed
       let errorMsg = `Failed to update ${args.itemType}`;
 
       if (result.error) {
@@ -85,6 +99,7 @@ export async function handler(args: z.infer<typeof schema>, extra: RequestHandle
           type: "text" as const,
           text: errorMsg
         }],
+        structuredContent: { success: false, itemType: args.itemType, error: result.error || errorMsg },
         isError: true
       };
     }
@@ -97,6 +112,7 @@ export async function handler(args: z.infer<typeof schema>, extra: RequestHandle
         type: "text" as const,
         text: `Error updating ${args.itemType}: ${error.message}`
       }],
+      structuredContent: { success: false, itemType: args.itemType, error: error.message },
       isError: true
     };
   }

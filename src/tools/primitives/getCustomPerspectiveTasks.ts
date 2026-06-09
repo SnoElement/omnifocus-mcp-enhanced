@@ -1,4 +1,5 @@
 import { executeOmniFocusScript } from '../../utils/scriptExecution.js';
+import { sortTasks, TaskSortField, TaskSortOrder } from '../../utils/taskSorting.js';
 import {
   buildPerspectiveTaskTree,
   PerspectiveDisplayMode,
@@ -11,21 +12,31 @@ export interface GetCustomPerspectiveTasksOptions {
   hideCompleted?: boolean;
   limit?: number;
   displayMode?: PerspectiveDisplayMode;
+  sortBy?: TaskSortField | string;
+  sortOrder?: TaskSortOrder;
   // Legacy params retained for compatibility with existing callers.
   showHierarchy?: boolean;
   groupByProject?: boolean;
 }
 
-export async function getCustomPerspectiveTasks(options: GetCustomPerspectiveTasksOptions): Promise<string> {
+export interface GetCustomPerspectiveTasksResult {
+  tasks: any[];
+  totalCount: number;
+  formatted: string;
+}
+
+export async function getCustomPerspectiveTasks(options: GetCustomPerspectiveTasksOptions): Promise<GetCustomPerspectiveTasksResult> {
   const {
     perspectiveName,
     hideCompleted = true,
     limit = 1000,
-    displayMode = 'project_tree'
+    displayMode = 'project_tree',
+    sortBy = 'name',
+    sortOrder = 'asc'
   } = options;
 
   if (!perspectiveName) {
-    return '❌ **错误**: 透视名称不能为空';
+    return { tasks: [], totalCount: 0, formatted: '❌ **错误**: 透视名称不能为空' };
   }
 
   try {
@@ -44,22 +55,33 @@ export async function getCustomPerspectiveTasks(options: GetCustomPerspectiveTas
       inboxLabel: '收件箱'
     });
 
+    const totalCount = data.count || tree.flatTasks.length;
+
     if (tree.flatTasks.length === 0) {
-      return `**透视任务：${perspectiveName}**\n\n暂无${hideCompleted ? '未完成' : ''}任务。`;
+      return {
+        tasks: [],
+        totalCount: 0,
+        formatted: `**透视任务：${perspectiveName}**\n\n暂无${hideCompleted ? '未完成' : ''}任务。`
+      };
     }
 
+    const sortedFlat = sortTasks(tree.flatTasks as any[], sortBy, sortOrder);
+    const limitedFlat = limit > 0 ? sortedFlat.slice(0, limit) : sortedFlat;
+
+    let formatted: string;
     if (displayMode === 'task_tree') {
-      return formatTaskTree(perspectiveName, tree.rootTasks, tree.flatTasks.length, data.count || tree.flatTasks.length);
+      formatted = formatTaskTree(perspectiveName, tree.rootTasks, tree.flatTasks.length, totalCount);
+    } else if (displayMode === 'flat') {
+      formatted = formatFlatTasks(perspectiveName, tree.flatTasks, limit, totalCount);
+    } else {
+      formatted = formatProjectTree(perspectiveName, tree.projectGroups, tree.flatTasks.length, totalCount);
     }
 
-    if (displayMode === 'flat') {
-      return formatFlatTasks(perspectiveName, tree.flatTasks, limit, data.count || tree.flatTasks.length);
-    }
-
-    return formatProjectTree(perspectiveName, tree.projectGroups, tree.flatTasks.length, data.count || tree.flatTasks.length);
+    return { tasks: limitedFlat, totalCount, formatted };
   } catch (error) {
     console.error('Error in getCustomPerspectiveTasks:', error);
-    return `❌ **错误**: ${error instanceof Error ? error.message : String(error)}`;
+    const message = error instanceof Error ? error.message : String(error);
+    return { tasks: [], totalCount: 0, formatted: `❌ **错误**: ${message}` };
   }
 }
 

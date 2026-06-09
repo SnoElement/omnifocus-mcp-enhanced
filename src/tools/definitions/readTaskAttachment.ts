@@ -12,6 +12,20 @@ export const schema = z.object({
   attachmentName: z.string().optional().describe('The attachment name reported by get_task_by_id')
 });
 
+export const outputSchema = z.object({
+  success: z.boolean(),
+  attachment: z.object({
+    id: z.string(),
+    name: z.string(),
+    kind: z.string(),
+    mimeType: z.string().nullable().optional(),
+    sizeBytes: z.number().nullable().optional(),
+    source: z.string()
+  }).optional(),
+  hasContent: z.boolean().optional(),
+  error: z.string().optional()
+});
+
 export function buildAttachmentContentResponse(result: {
   attachment: NonNullable<ReadTaskAttachmentResult['attachment']>;
   content: NonNullable<ReadTaskAttachmentResult['content']>;
@@ -68,6 +82,7 @@ export async function handler(args: z.infer<typeof schema>, extra: RequestHandle
         type: 'text' as const,
         text: `Error: ${validation.error}`
       }],
+      structuredContent: { success: false, error: validation.error },
       isError: true
     };
   }
@@ -79,12 +94,28 @@ export async function handler(args: z.infer<typeof schema>, extra: RequestHandle
         type: 'text' as const,
         text: `Failed to read attachment: ${result.error}`
       }],
+      structuredContent: { success: false, error: result.error },
       isError: true
     };
   }
 
-  return buildAttachmentContentResponse({
+  const response = buildAttachmentContentResponse({
     attachment: result.attachment,
     content: result.content
   });
+  return {
+    ...response,
+    structuredContent: {
+      success: true,
+      attachment: {
+        id: result.attachment.id,
+        name: result.attachment.name,
+        kind: result.attachment.kind,
+        mimeType: result.attachment.mimeType,
+        sizeBytes: result.attachment.sizeBytes,
+        source: result.attachment.source
+      },
+      hasContent: true
+    }
+  };
 }

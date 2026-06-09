@@ -1,75 +1,81 @@
 import { executeOmniFocusScript } from '../../utils/scriptExecution.js';
+import { sortTasks, TaskSortField, TaskSortOrder } from '../../utils/taskSorting.js';
 
 export interface GetTodayCompletedTasksOptions {
   limit?: number;
+  sortBy?: TaskSortField | string;
+  sortOrder?: TaskSortOrder;
 }
 
-export async function getTodayCompletedTasks(options: GetTodayCompletedTasksOptions = {}): Promise<string> {
+export interface GetTodayCompletedTasksResult {
+  tasks: any[];
+  totalCount: number;
+  formatted: string;
+}
+
+export async function getTodayCompletedTasks(options: GetTodayCompletedTasksOptions = {}): Promise<GetTodayCompletedTasksResult> {
   try {
-    const { limit = 20 } = options;
-    
+    const { limit = 20, sortBy = 'completedDate', sortOrder = 'desc' } = options;
+
     const result = await executeOmniFocusScript('@todayCompletedTasks.js', { limit });
-    
+
     if (typeof result === 'string') {
-      return result;
+      return { tasks: [], totalCount: 0, formatted: result };
     }
-    
-    // 如果结果是对象，格式化它
+
     if (result && typeof result === 'object') {
       const data = result as any;
-      
+
       if (data.error) {
         throw new Error(data.error);
       }
-      
-      // 格式化完成任务结果
+
       let output = `# ✅ 今天完成的任务\\n\\n`;
-      
+
       if (data.tasks && Array.isArray(data.tasks)) {
-        if (data.tasks.length === 0) {
+        const sorted = sortTasks(data.tasks, sortBy, sortOrder);
+        const totalCount = data.filteredCount || sorted.length;
+        const limited = limit > 0 ? sorted.slice(0, limit) : sorted;
+
+        if (limited.length === 0) {
           output += "🎯 今天还没有完成任何任务。\\n";
           output += "\\n**加油！** 完成一些任务来让这个列表变得丰富起来！\\n";
         } else {
-          const taskCount = data.tasks.length;
-          const totalCount = data.filteredCount || taskCount;
-          
           output += `🎉 恭喜！今天已完成 **${totalCount}** 个任务`;
-          if (taskCount < totalCount) {
-            output += `（显示前 ${taskCount} 个）`;
+          if (limited.length < totalCount) {
+            output += `（显示前 ${limited.length} 个）`;
           }
           output += `：\\n\\n`;
-          
-          // 按项目分组显示任务
-          const tasksByProject = groupTasksByProject(data.tasks);
-          
+
+          const tasksByProject = groupTasksByProject(limited);
+
           tasksByProject.forEach((tasks, projectName) => {
             if (tasksByProject.size > 1) {
               output += `## 📁 ${projectName}\\n`;
             }
-            
+
             tasks.forEach((task: any) => {
               output += formatCompletedTask(task);
               output += '\\n';
             });
-            
+
             if (tasksByProject.size > 1) {
               output += '\\n';
             }
           });
-          
-          // 显示总结
+
           output += `\\n---\\n📊 **今日完成总结**: ${totalCount} 个任务已完成\\n`;
           output += `📅 **查询时间**: ${new Date().toLocaleString()}\\n`;
         }
-      } else {
-        output += "无法获取任务数据\\n";
+
+        return { tasks: limited, totalCount, formatted: output };
       }
-      
-      return output;
+
+      output += "无法获取任务数据\\n";
+      return { tasks: [], totalCount: 0, formatted: output };
     }
-    
-    return "无法解析 OmniFocus 返回结果";
-    
+
+    return { tasks: [], totalCount: 0, formatted: "无法解析 OmniFocus 返回结果" };
   } catch (error) {
     console.error("Error in getTodayCompletedTasks:", error);
     throw new Error(`获取今天完成的任务失败: ${error instanceof Error ? error.message : 'Unknown error'}`);

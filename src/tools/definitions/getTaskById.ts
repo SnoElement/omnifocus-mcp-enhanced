@@ -9,6 +9,33 @@ export const schema = z.object({
   taskName: z.string().optional().describe("The name of the task to retrieve (alternative to taskId)")
 });
 
+const taskInfoSchema = z.object({
+  id: z.string(),
+  name: z.string(),
+  note: z.string(),
+  parentId: z.string().optional(),
+  parentName: z.string().optional(),
+  projectId: z.string().optional(),
+  projectName: z.string().optional(),
+  hasChildren: z.boolean(),
+  childrenCount: z.number(),
+  tags: z.array(z.string()),
+  dueDate: z.string().optional(),
+  deferDate: z.string().optional(),
+  plannedDate: z.string().optional(),
+  flagged: z.boolean(),
+  completed: z.boolean(),
+  estimatedMinutes: z.number().optional(),
+  attachments: z.array(z.any()),
+  linkedFileURLs: z.array(z.string())
+});
+
+export const outputSchema = z.object({
+  success: z.boolean(),
+  task: taskInfoSchema.optional(),
+  error: z.string().optional()
+});
+
 export function formatTaskInfo(task: Awaited<ReturnType<typeof getTaskById>> extends { task?: infer T } ? T : never): string {
   let infoText = `📋 **Task Information**\n`;
   infoText += `• **Name**: ${task.name}\n`;
@@ -60,11 +87,11 @@ export async function handler(args: z.infer<typeof schema>, extra: RequestHandle
           type: "text" as const,
           text: "Error: Either taskId or taskName must be provided."
         }],
+        structuredContent: { success: false, error: "Either taskId or taskName must be provided." },
         isError: true
       };
     }
 
-    // Call the getTaskById function
     const result = await getTaskById(args as GetTaskByIdParams);
 
     if (result.success && result.task) {
@@ -72,15 +99,16 @@ export async function handler(args: z.infer<typeof schema>, extra: RequestHandle
         content: [{
           type: "text" as const,
           text: formatTaskInfo(result.task)
-        }]
+        }],
+        structuredContent: { success: true, task: result.task }
       };
     } else {
-      // Task retrieval failed
       return {
         content: [{
           type: "text" as const,
           text: `Failed to retrieve task: ${result.error}`
         }],
+        structuredContent: { success: false, error: result.error },
         isError: true
       };
     }
@@ -92,6 +120,7 @@ export async function handler(args: z.infer<typeof schema>, extra: RequestHandle
         type: "text" as const,
         text: `Error retrieving task: ${error.message}`
       }],
+      structuredContent: { success: false, error: error.message },
       isError: true
     };
   }

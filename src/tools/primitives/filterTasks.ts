@@ -1,4 +1,11 @@
 import { executeOmniFocusScript } from '../../utils/scriptExecution.js';
+import { sortTasks as sharedSortTasks } from '../../utils/taskSorting.js';
+
+export interface FilterTasksResult {
+  tasks: any[];
+  totalCount: number;
+  formatted: string;
+}
 
 export interface FilterTasksOptions {
   // 🎯 任务状态过滤
@@ -173,57 +180,7 @@ function shouldApplyClientSideFilters(options: FilterTasksOptions): boolean {
   );
 }
 
-function sortTasks(tasks: any[], sortBy: string, sortOrder: 'asc' | 'desc'): any[] {
-  const copy = [...tasks];
-  const direction = sortOrder === 'desc' ? -1 : 1;
-
-  const compareDate = (
-    a: any,
-    b: any,
-    key: 'dueDate' | 'deferDate' | 'plannedDate' | 'completedDate' | 'addedDate' | 'modifiedDate',
-  ) => {
-    const dateA = parseDate(a?.[key]);
-    const dateB = parseDate(b?.[key]);
-    const valueA = dateA ? dateA.getTime() : Number.POSITIVE_INFINITY;
-    const valueB = dateB ? dateB.getTime() : Number.POSITIVE_INFINITY;
-    return (valueA - valueB) * direction;
-  };
-
-  copy.sort((a: any, b: any) => {
-    switch (sortBy) {
-      case 'dueDate':
-        return compareDate(a, b, 'dueDate');
-      case 'deferDate':
-        return compareDate(a, b, 'deferDate');
-      case 'plannedDate':
-        return compareDate(a, b, 'plannedDate');
-      case 'completedDate':
-        return compareDate(a, b, 'completedDate');
-      case 'addedDate':
-        return compareDate(a, b, 'addedDate');
-      case 'modifiedDate':
-        return compareDate(a, b, 'modifiedDate');
-      case 'flagged': {
-        const flaggedA = a?.flagged ? 1 : 0;
-        const flaggedB = b?.flagged ? 1 : 0;
-        return (flaggedA - flaggedB) * direction;
-      }
-      case 'project': {
-        const projectA = (a?.projectName || '').toLowerCase();
-        const projectB = (b?.projectName || '').toLowerCase();
-        return projectA.localeCompare(projectB) * direction;
-      }
-      case 'name':
-      default: {
-        const nameA = (a?.name || '').toLowerCase();
-        const nameB = (b?.name || '').toLowerCase();
-        return nameA.localeCompare(nameB) * direction;
-      }
-    }
-  });
-
-  return copy;
-}
+const sortTasks = sharedSortTasks;
 
 export function applyClientSideFilters(tasks: any[], options: FilterTasksOptions): any[] {
   let filteredTasks = tasks;
@@ -404,9 +361,8 @@ function applyDateRangeFilters(
   return result;
 }
 
-export async function filterTasks(options: FilterTasksOptions = {}): Promise<string> {
+export async function filterTasks(options: FilterTasksOptions = {}): Promise<FilterTasksResult> {
   try {
-    // 设置默认值
     const {
       perspective = 'all',
       exactTagMatch = false,
@@ -419,7 +375,6 @@ export async function filterTasks(options: FilterTasksOptions = {}): Promise<str
     const needsClientSideSorting = !['name', 'completedDate', 'addedDate', 'modifiedDate'].includes(sortBy);
     const sourceLimit = (needsClientSideFiltering || needsClientSideSorting) ? Math.max(limit * 20, 1000) : limit;
 
-    // 执行常规过滤脚本
     const result = await executeOmniFocusScript('@filterTasks.js', {
       ...options,
       perspective,
@@ -430,10 +385,9 @@ export async function filterTasks(options: FilterTasksOptions = {}): Promise<str
     });
 
     if (typeof result === 'string') {
-      return result;
+      return { tasks: [], totalCount: 0, formatted: result };
     }
 
-    // 如果结果是对象，格式化它
     if (result && typeof result === 'object') {
       const data = result as any;
 
@@ -441,10 +395,8 @@ export async function filterTasks(options: FilterTasksOptions = {}): Promise<str
         throw new Error(data.error);
       }
 
-      // 格式化过滤结果
       let output = `# 🔍 FILTERED TASKS\n\n`;
 
-      // 显示过滤条件摘要
       const filterSummary = buildFilterSummary(options);
       if (filterSummary) {
         output += `**Filter**: ${filterSummary}\n\n`;
@@ -459,8 +411,6 @@ export async function filterTasks(options: FilterTasksOptions = {}): Promise<str
 
         if (taskCount === 0) {
           output += '🎯 No tasks match your filter criteria.\n';
-
-          // 提供一些建议
           output += '\n**Tips**:\n';
           output += '- Try broadening your search criteria\n';
           output += '- Check if tasks exist in the specified project/tags\n';
@@ -472,7 +422,6 @@ export async function filterTasks(options: FilterTasksOptions = {}): Promise<str
           }
           output += ':\n\n';
 
-          // 按项目分组显示任务
           const tasksByProject = groupTasksByProject(limitedTasks);
 
           tasksByProject.forEach((tasks, projectName) => {
@@ -490,17 +439,17 @@ export async function filterTasks(options: FilterTasksOptions = {}): Promise<str
             }
           });
 
-          // 显示排序信息
           output += `\n📊 **Sorted by**: ${sortBy} (${sortOrder})\n`;
         }
-      } else {
-        output += 'No task data available\n';
+
+        return { tasks: limitedTasks, totalCount, formatted: output };
       }
 
-      return output;
+      output += 'No task data available\n';
+      return { tasks: [], totalCount: 0, formatted: output };
     }
 
-    return 'Unexpected result format from OmniFocus';
+    return { tasks: [], totalCount: 0, formatted: 'Unexpected result format from OmniFocus' };
   } catch (error) {
     console.error('Error in filterTasks:', error);
     throw new Error(`Failed to filter tasks: ${error instanceof Error ? error.message : 'Unknown error'}`);

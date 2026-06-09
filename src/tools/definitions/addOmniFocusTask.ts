@@ -17,6 +17,12 @@ export const schema = z.object({
   parentTaskName: z.string().optional().describe("The name of the parent task to create this task as a subtask (alternative to parentTaskId)")
 });
 
+export const outputSchema = z.object({
+  success: z.boolean(),
+  taskId: z.string().optional(),
+  error: z.string().optional()
+});
+
 export async function handler(args: z.infer<typeof schema>, extra: RequestHandlerExtra<ServerRequest, ServerNotification>) {
   try {
     // Call the addOmniFocusTask function
@@ -50,15 +56,16 @@ export async function handler(args: z.infer<typeof schema>, extra: RequestHandle
         content: [{
           type: "text" as const,
           text: `✅ Task "${args.name}" created successfully ${locationText}${dueDateText}${plannedDateText}${tagText}.\n\nid: ${result.taskId}`
-        }]
+        }],
+        structuredContent: { success: true, taskId: result.taskId }
       };
     } else {
-      // Task creation failed
       return {
         content: [{
           type: "text" as const,
           text: `Failed to create task: ${result.error}`
         }],
+        structuredContent: { success: false, error: result.error },
         isError: true
       };
     }
@@ -70,6 +77,7 @@ export async function handler(args: z.infer<typeof schema>, extra: RequestHandle
         type: "text" as const,
         text: `Error creating task: ${error.message}`
       }],
+      structuredContent: { success: false, error: error.message },
       isError: true
     };
   }

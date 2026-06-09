@@ -11,6 +11,17 @@ export const schema = z.object({
   })).describe("Array of items (tasks or projects) to remove")
 });
 
+export const outputSchema = z.object({
+  success: z.boolean(),
+  results: z.array(z.object({
+    success: z.boolean(),
+    id: z.string().optional(),
+    name: z.string().optional(),
+    error: z.string().optional()
+  })),
+  error: z.string().optional()
+});
+
 export async function handler(args: z.infer<typeof schema>, extra: RequestHandlerExtra<ServerRequest, ServerNotification>) {
   try {
     // Validate that each item has at least an ID or name
@@ -21,25 +32,24 @@ export async function handler(args: z.infer<typeof schema>, extra: RequestHandle
             type: "text" as const,
             text: "Each item must have either id or name provided to remove it."
           }],
+          structuredContent: { success: false, results: [], error: "Each item must have either id or name provided to remove it." },
           isError: true
         };
       }
     }
-    
-    // Call the batchRemoveItems function
+
     const result = await batchRemoveItems(args.items as BatchRemoveItemsParams[]);
-    
+
     if (result.success) {
       const successCount = result.results.filter(r => r.success).length;
       const failureCount = result.results.filter(r => !r.success).length;
-      
+
       let message = `✅ Successfully removed ${successCount} items.`;
-      
+
       if (failureCount > 0) {
         message += ` ⚠️ Failed to remove ${failureCount} items.`;
       }
-      
-      // Include details about removed items
+
       const details = result.results.map((item, index) => {
         if (item.success) {
           const itemType = args.items[index].itemType;
@@ -50,20 +60,21 @@ export async function handler(args: z.infer<typeof schema>, extra: RequestHandle
           return `- ❌ ${itemType}: ${identifier} - Error: ${item.error}`;
         }
       }).join('\n');
-      
+
       return {
         content: [{
           type: "text" as const,
           text: `${message}\n\n${details}`
-        }]
+        }],
+        structuredContent: { success: true, results: result.results }
       };
     } else {
-      // Batch operation failed completely
       return {
         content: [{
           type: "text" as const,
           text: `Failed to process batch removal: ${result.error}`
         }],
+        structuredContent: { success: false, results: [], error: result.error },
         isError: true
       };
     }
@@ -75,7 +86,8 @@ export async function handler(args: z.infer<typeof schema>, extra: RequestHandle
         type: "text" as const,
         text: `Error processing batch removal: ${error.message}`
       }],
+      structuredContent: { success: false, results: [], error: error.message },
       isError: true
     };
   }
-} 
+}

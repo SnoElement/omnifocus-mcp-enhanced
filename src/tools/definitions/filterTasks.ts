@@ -87,23 +87,32 @@ export const schema = z.object({
   sortOrder: z.enum(["asc", "desc"]).optional().describe("Sort order (default: asc)")
 });
 
+export const outputSchema = z.object({
+  success: z.boolean(),
+  tasks: z.array(z.any()),
+  count: z.number(),
+  totalCount: z.number(),
+  error: z.string().optional()
+});
+
 export async function handler(args: z.infer<typeof schema>, extra: RequestHandlerExtra<ServerRequest, ServerNotification>) {
   try {
     const result = await filterTasks(args);
 
     return {
-      content: [{
-        type: "text" as const,
-        text: result
-      }]
+      content: [{ type: "text" as const, text: result.formatted }],
+      structuredContent: {
+        success: true,
+        tasks: result.tasks,
+        count: result.tasks.length,
+        totalCount: result.totalCount
+      }
     };
   } catch (err: unknown) {
     const errorMessage = err instanceof Error ? err.message : 'Unknown error occurred';
     return {
-      content: [{
-        type: "text" as const,
-        text: `Error filtering tasks: ${errorMessage}`
-      }],
+      content: [{ type: "text" as const, text: `Error filtering tasks: ${errorMessage}` }],
+      structuredContent: { success: false, tasks: [], count: 0, totalCount: 0, error: errorMessage },
       isError: true
     };
   }

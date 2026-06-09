@@ -8,29 +8,36 @@ export const schema = z.object({
   hideRecurringDuplicates: z.boolean().optional().describe("Set to true to hide duplicate instances of recurring tasks (default: true)")
 });
 
+export const outputSchema = z.object({
+  success: z.boolean(),
+  database: z.any().optional(),
+  error: z.string().optional()
+});
+
 export async function handler(args: z.infer<typeof schema>, extra: RequestHandlerExtra<ServerRequest, ServerNotification>) {
   try {
-    // Get raw database
     const database = await dumpDatabase();
-    
-    // Format as compact report
+
     const formattedReport = formatCompactReport(database, {
-      hideCompleted: args.hideCompleted !== false, // Default to true
-      hideRecurringDuplicates: args.hideRecurringDuplicates !== false // Default to true
+      hideCompleted: args.hideCompleted !== false,
+      hideRecurringDuplicates: args.hideRecurringDuplicates !== false
     });
-    
+
     return {
       content: [{
         type: "text" as const,
         text: formattedReport
-      }]
+      }],
+      structuredContent: { success: true, database }
     };
   } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : 'Unknown error';
     return {
       content: [{
         type: "text" as const,
         text: `Error generating report. Please ensure OmniFocus is running and try again.`
       }],
+      structuredContent: { success: false, error: message },
       isError: true
     };
   }

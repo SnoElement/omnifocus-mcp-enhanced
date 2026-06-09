@@ -26,6 +26,16 @@ export const schema = z.object({
   })).describe("Array of items (tasks or projects) to add")
 });
 
+export const outputSchema = z.object({
+  success: z.boolean(),
+  results: z.array(z.object({
+    success: z.boolean(),
+    id: z.string().optional(),
+    error: z.string().optional()
+  })),
+  error: z.string().optional()
+});
+
 export async function handler(args: z.infer<typeof schema>, extra: RequestHandlerExtra<ServerRequest, ServerNotification>) {
   try {
     // Call the batchAddItems function
@@ -58,15 +68,16 @@ export async function handler(args: z.infer<typeof schema>, extra: RequestHandle
         content: [{
           type: "text" as const,
           text: `${message}\n\n${details}`
-        }]
+        }],
+        structuredContent: { success: true, results: result.results }
       };
     } else {
-      // Batch operation failed completely
       return {
         content: [{
           type: "text" as const,
           text: `Failed to process batch operation: ${result.error}`
         }],
+        structuredContent: { success: false, results: [], error: result.error },
         isError: true
       };
     }
@@ -78,6 +89,7 @@ export async function handler(args: z.infer<typeof schema>, extra: RequestHandle
         type: "text" as const,
         text: `Error processing batch operation: ${error.message}`
       }],
+      structuredContent: { success: false, results: [], error: error.message },
       isError: true
     };
   }

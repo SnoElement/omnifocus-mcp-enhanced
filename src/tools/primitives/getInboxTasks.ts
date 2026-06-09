@@ -1,23 +1,31 @@
 import { executeOmniFocusScript } from '../../utils/scriptExecution.js';
+import { sortTasks, TaskSortField, TaskSortOrder } from '../../utils/taskSorting.js';
 
 export interface GetInboxTasksOptions {
   hideCompleted?: boolean;
+  sortBy?: TaskSortField | string;
+  sortOrder?: TaskSortOrder;
+  limit?: number;
 }
 
-export async function getInboxTasks(options: GetInboxTasksOptions = {}): Promise<string> {
-  const { hideCompleted = true } = options;
+export interface GetInboxTasksResult {
+  tasks: any[];
+  totalCount: number;
+  formatted: string;
+}
+
+export async function getInboxTasks(options: GetInboxTasksOptions = {}): Promise<GetInboxTasksResult> {
+  const { hideCompleted = true, sortBy = 'name', sortOrder = 'asc', limit = 100 } = options;
 
   try {
-    // Execute the inbox script
     const result = await executeOmniFocusScript('@inboxTasks.js', {
       hideCompleted: hideCompleted
     });
 
     if (typeof result === 'string') {
-      return result;
+      return { tasks: [], totalCount: 0, formatted: result };
     }
 
-    // If result is an object, format it
     if (result && typeof result === 'object') {
       const data = result as any;
 
@@ -25,16 +33,23 @@ export async function getInboxTasks(options: GetInboxTasksOptions = {}): Promise
         throw new Error(data.error);
       }
 
-      // Format the inbox tasks
       let output = `# INBOX TASKS\n\n`;
 
       if (data.tasks && Array.isArray(data.tasks)) {
-        if (data.tasks.length === 0) {
+        const sorted = sortTasks(data.tasks, sortBy, sortOrder);
+        const totalCount = sorted.length;
+        const limited = limit > 0 ? sorted.slice(0, limit) : sorted;
+
+        if (limited.length === 0) {
           output += '📪 Inbox is empty - well done!\n';
         } else {
-          output += `📥 Found ${data.tasks.length} task${data.tasks.length === 1 ? '' : 's'} in inbox:\n\n`;
+          output += `📥 Found ${totalCount} task${totalCount === 1 ? '' : 's'} in inbox`;
+          if (limited.length < totalCount) {
+            output += ` (showing first ${limited.length})`;
+          }
+          output += ':\n\n';
 
-          data.tasks.forEach((task: any, index: number) => {
+          limited.forEach((task: any, index: number) => {
             const flagSymbol = task.flagged ? '🚩 ' : '';
             const dueDateStr = task.dueDate ? ` [DUE: ${new Date(task.dueDate).toLocaleDateString()}]` : '';
             const plannedDateStr = task.plannedDate ? ` [PLAN: ${new Date(task.plannedDate).toLocaleDateString()}]` : '';
@@ -47,14 +62,15 @@ export async function getInboxTasks(options: GetInboxTasksOptions = {}): Promise
             }
           });
         }
-      } else {
-        output += 'No inbox data available\n';
+
+        return { tasks: limited, totalCount, formatted: output };
       }
 
-      return output;
+      output += 'No inbox data available\n';
+      return { tasks: [], totalCount: 0, formatted: output };
     }
 
-    return 'Unexpected result format from OmniFocus';
+    return { tasks: [], totalCount: 0, formatted: 'Unexpected result format from OmniFocus' };
   } catch (error) {
     console.error('Error in getInboxTasks:', error);
     throw new Error(`Failed to get inbox tasks: ${error instanceof Error ? error.message : 'Unknown error'}`);

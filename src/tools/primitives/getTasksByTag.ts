@@ -1,48 +1,61 @@
 import { executeOmniFocusScript } from '../../utils/scriptExecution.js';
+import { sortTasks, TaskSortField, TaskSortOrder } from '../../utils/taskSorting.js';
 
 export interface GetTasksByTagOptions {
   tagName: string;
   hideCompleted?: boolean;
   exactMatch?: boolean;
+  sortBy?: TaskSortField | string;
+  sortOrder?: TaskSortOrder;
+  limit?: number;
 }
 
-export async function getTasksByTag(options: GetTasksByTagOptions): Promise<string> {
-  const { tagName, hideCompleted = true, exactMatch = false } = options;
-  
+export interface GetTasksByTagResult {
+  tasks: any[];
+  totalCount: number;
+  matchedTags: string[];
+  formatted: string;
+}
+
+export async function getTasksByTag(options: GetTasksByTagOptions): Promise<GetTasksByTagResult> {
+  const { tagName, hideCompleted = true, exactMatch = false, sortBy = 'name', sortOrder = 'asc', limit = 100 } = options;
+
   if (!tagName || tagName.trim() === '') {
     throw new Error('Tag name is required');
   }
-  
+
   try {
-    // Execute the tasks by tag script
-    const result = await executeOmniFocusScript('@tasksByTag.js', { 
+    const result = await executeOmniFocusScript('@tasksByTag.js', {
       tagName: tagName.trim(),
       hideCompleted: hideCompleted,
       exactMatch: exactMatch
     });
-    
+
     if (typeof result === 'string') {
-      return result;
+      return { tasks: [], totalCount: 0, matchedTags: [], formatted: result };
     }
-    
-    // If result is an object, format it
+
     if (result && typeof result === 'object') {
       const data = result as any;
-      
+
       if (data.error) {
         throw new Error(data.error);
       }
-      
-      // Format the tasks by tag
+
       const searchType = exactMatch ? 'exact match' : 'partial match';
+      const matchedTags: string[] = data.matchedTags || [];
       let output = `# 🏷 TASKS WITH TAG: "${tagName}" (${searchType})\n\n`;
-      
-      if (data.matchedTags && data.matchedTags.length > 0) {
-        output += `**Matched tags**: ${data.matchedTags.join(', ')}\n\n`;
+
+      if (matchedTags.length > 0) {
+        output += `**Matched tags**: ${matchedTags.join(', ')}\n\n`;
       }
-      
+
       if (data.tasks && Array.isArray(data.tasks)) {
-        if (data.tasks.length === 0) {
+        const sorted = sortTasks(data.tasks, sortBy, sortOrder);
+        const totalCount = sorted.length;
+        const limited = limit > 0 ? sorted.slice(0, limit) : sorted;
+
+        if (limited.length === 0) {
           output += `No tasks found with tag "${tagName}"\n`;
           if (data.availableTags && data.availableTags.length > 0) {
             output += `\n**Available tags**: ${data.availableTags.slice(0, 10).join(', ')}`;
@@ -52,26 +65,27 @@ export async function getTasksByTag(options: GetTasksByTagOptions): Promise<stri
             output += '\n';
           }
         } else {
-          const taskCount = data.tasks.length;
-          output += `Found ${taskCount} task${taskCount === 1 ? '' : 's'}:\n\n`;
-          
-          // Group tasks by project for better organization
+          output += `Found ${totalCount} task${totalCount === 1 ? '' : 's'}`;
+          if (limited.length < totalCount) {
+            output += ` (showing first ${limited.length})`;
+          }
+          output += ':\n\n';
+
           const tasksByProject = new Map<string, any[]>();
-          
-          data.tasks.forEach((task: any) => {
+
+          limited.forEach((task: any) => {
             const projectName = task.projectName || '📥 Inbox';
             if (!tasksByProject.has(projectName)) {
               tasksByProject.set(projectName, []);
             }
             tasksByProject.get(projectName)!.push(task);
           });
-          
-          // Display tasks grouped by project
+
           tasksByProject.forEach((tasks, projectName) => {
             if (tasksByProject.size > 1) {
               output += `## 📁 ${projectName}\n`;
             }
-            
+
             tasks.forEach((task: any) => {
               const flagSymbol = task.flagged ? '🚩 ' : '';
               const dueDateStr = task.dueDate ? ` [DUE: ${new Date(task.dueDate).toLocaleDateString()}]` : '';
@@ -79,40 +93,37 @@ export async function getTasksByTag(options: GetTasksByTagOptions): Promise<stri
               const plannedDateStr = task.plannedDate ? ` [PLAN: ${new Date(task.plannedDate).toLocaleDateString()}]` : '';
               const statusStr = task.taskStatus !== 'Available' ? ` (${task.taskStatus})` : '';
               const estimateStr = task.estimatedMinutes ? ` ⏱${task.estimatedMinutes}m` : '';
-              
+
               output += `• ${flagSymbol}${task.name}${dueDateStr}${deferDateStr}${plannedDateStr}${statusStr}${estimateStr}\n`;
-              
+
               if (task.note && task.note.trim()) {
                 output += `  📝 ${task.note.trim()}\n`;
               }
-              
-              // Show all tags for this task
+
               if (task.tags && task.tags.length > 0) {
                 const tagNames = task.tags.map((tag: any) => {
-                  // Highlight the matched tag
-                  return data.matchedTags && data.matchedTags.includes(tag.name) 
-                    ? `**${tag.name}**` 
+                  return matchedTags.includes(tag.name)
+                    ? `**${tag.name}**`
                     : tag.name;
                 }).join(', ');
                 output += `  🏷 ${tagNames}\n`;
               }
-              
+
               output += '\n';
             });
           });
-          
-          // Summary
-          output += `📊 **Summary**: ${taskCount} task${taskCount === 1 ? '' : 's'} with tag "${tagName}"\n`;
+
+          output += `📊 **Summary**: ${totalCount} task${totalCount === 1 ? '' : 's'} with tag "${tagName}"\n`;
         }
-      } else {
-        output += "No tasks data available\n";
+
+        return { tasks: limited, totalCount, matchedTags, formatted: output };
       }
-      
-      return output;
+
+      output += "No tasks data available\n";
+      return { tasks: [], totalCount: 0, matchedTags, formatted: output };
     }
-    
-    return "Unexpected result format from OmniFocus";
-    
+
+    return { tasks: [], totalCount: 0, matchedTags: [], formatted: "Unexpected result format from OmniFocus" };
   } catch (error) {
     console.error("Error in getTasksByTag:", error);
     throw new Error(`Failed to get tasks by tag: ${error instanceof Error ? error.message : 'Unknown error'}`);

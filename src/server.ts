@@ -2,6 +2,7 @@
 
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
+import { z } from "zod/v3";
 
 // Import tool definitions
 import * as dumpDatabaseTool from './tools/definitions/dumpDatabase.js';
@@ -29,139 +30,58 @@ import * as getCustomPerspectiveTasksTool from './tools/definitions/getCustomPer
 // Create an MCP server
 const server = new McpServer({
   name: "OmniFocus MCP",
-  version: "1.6.9"
+  version: "1.7.0"
 });
 
-// Register tools
-server.tool(
-  "dump_database",
-  "Gets the current state of your OmniFocus database",
-  dumpDatabaseTool.schema.shape,
-  dumpDatabaseTool.handler
-);
+const FORMAT_FIELD = {
+  format: z.enum(['text', 'json']).optional().describe("Output format for content[0].text. 'text' (default) returns human-readable text; 'json' returns JSON-serialized structured payload. structuredContent is populated regardless.")
+};
 
-server.tool(
-  "add_omnifocus_task",
-  "Add a new task to OmniFocus",
-  addOmniFocusTaskTool.schema.shape,
-  addOmniFocusTaskTool.handler
-);
+function register(name: string, description: string, mod: any) {
+  const baseInputShape = mod.schema?.shape ?? mod.schema ?? {};
+  const inputSchema = { ...baseInputShape, ...FORMAT_FIELD };
 
-server.tool(
-  "add_project",
-  "Add a new project to OmniFocus",
-  addProjectTool.schema.shape,
-  addProjectTool.handler
-);
+  const config: any = { description, inputSchema };
+  if (mod.outputSchema) {
+    config.outputSchema = mod.outputSchema.shape ?? mod.outputSchema;
+  }
 
-server.tool(
-  "remove_item",
-  "Remove a task or project from OmniFocus",
-  removeItemTool.schema.shape,
-  removeItemTool.handler
-);
+  const wrappedHandler = async (args: any, extra: any) => {
+    const { format, ...rest } = args || {};
+    const result = await mod.handler(rest, extra);
 
-server.tool(
-  "edit_item",
-  "Edit a task or project in OmniFocus",
-  editItemTool.schema.shape,
-  editItemTool.handler
-);
+    if (format === 'json' && result?.structuredContent) {
+      const jsonText = JSON.stringify(result.structuredContent, null, 2);
+      return {
+        ...result,
+        content: [{ type: 'text' as const, text: jsonText }]
+      };
+    }
 
-server.tool(
-  "move_task",
-  "Move an existing task to a project, parent task, or inbox",
-  moveTaskTool.schema.shape,
-  moveTaskTool.handler
-);
+    return result;
+  };
 
-server.tool(
-  "batch_add_items",
-  "Add multiple tasks or projects to OmniFocus in a single operation",
-  batchAddItemsTool.schema.shape,
-  batchAddItemsTool.handler
-);
+  server.registerTool(name, config, wrappedHandler as any);
+}
 
-server.tool(
-  "batch_remove_items",
-  "Remove multiple tasks or projects from OmniFocus in a single operation",
-  batchRemoveItemsTool.schema.shape,
-  batchRemoveItemsTool.handler
-);
-
-
-server.tool(
-  "get_task_by_id",
-  "Get information about a specific task by ID or name",
-  getTaskByIdTool.schema.shape,
-  getTaskByIdTool.handler
-);
-
-server.tool(
-  "read_task_attachment",
-  "Read a task attachment reported by get_task_by_id. Images are returned as MCP image content when possible.",
-  readTaskAttachmentTool.schema.shape,
-  readTaskAttachmentTool.handler
-);
-
-server.tool(
-  "get_today_completed_tasks",
-  "Get tasks completed today - view today's accomplishments",
-  getTodayCompletedTasksTool.schema.shape,
-  getTodayCompletedTasksTool.handler
-);
-
-// Register perspective tools
-server.tool(
-  "get_inbox_tasks",
-  "Get tasks from OmniFocus inbox perspective",
-  getInboxTasksTool.schema.shape,
-  getInboxTasksTool.handler
-);
-
-server.tool(
-  "get_flagged_tasks", 
-  "Get flagged tasks from OmniFocus with optional project filtering",
-  getFlaggedTasksTool.schema.shape,
-  getFlaggedTasksTool.handler
-);
-
-server.tool(
-  "get_forecast_tasks",
-  "Get tasks from OmniFocus forecast perspective (due/deferred tasks in date range)", 
-  getForecastTasksTool.schema.shape,
-  getForecastTasksTool.handler
-);
-
-server.tool(
-  "get_tasks_by_tag",
-  "Get tasks filtered by OmniFocus tags (labels like @home, @work, @urgent). Use this for tag-based filtering, NOT for custom perspective names. Tags are labels assigned to individual tasks.",
-  getTasksByTagTool.schema.shape, 
-  getTasksByTagTool.handler
-);
-
-// Ultimate filter tool - The most powerful task perspective engine
-server.tool(
-  "filter_tasks",
-  "Advanced task filtering with unlimited perspective combinations - status, dates, projects, tags, search, and more",
-  filterTasksTool.schema.shape,
-  filterTasksTool.handler
-);
-
-// Custom perspective tools
-server.tool(
-  "list_custom_perspectives",
-  "List all custom perspectives defined in OmniFocus",
-  listCustomPerspectivesTool.schema.shape,
-  listCustomPerspectivesTool.handler
-);
-
-server.tool(
-  "get_custom_perspective_tasks",
-  "Get tasks from a specific OmniFocus custom perspective by name. Use this when user refers to perspective names like '今日工作安排', '今日复盘', '本周项目' etc. - these are custom views created in OmniFocus, NOT tags. Supports hierarchical tree display of task relationships.",
-  getCustomPerspectiveTasksTool.schema.shape,
-  getCustomPerspectiveTasksTool.handler
-);
+register("dump_database", "Gets the current state of your OmniFocus database", dumpDatabaseTool);
+register("add_omnifocus_task", "Add a new task to OmniFocus", addOmniFocusTaskTool);
+register("add_project", "Add a new project to OmniFocus", addProjectTool);
+register("remove_item", "Remove a task or project from OmniFocus", removeItemTool);
+register("edit_item", "Edit a task or project in OmniFocus", editItemTool);
+register("move_task", "Move an existing task to a project, parent task, or inbox", moveTaskTool);
+register("batch_add_items", "Add multiple tasks or projects to OmniFocus in a single operation", batchAddItemsTool);
+register("batch_remove_items", "Remove multiple tasks or projects from OmniFocus in a single operation", batchRemoveItemsTool);
+register("get_task_by_id", "Get information about a specific task by ID or name", getTaskByIdTool);
+register("read_task_attachment", "Read a task attachment reported by get_task_by_id. Images are returned as MCP image content when possible.", readTaskAttachmentTool);
+register("get_today_completed_tasks", "Get tasks completed today - view today's accomplishments", getTodayCompletedTasksTool);
+register("get_inbox_tasks", "Get tasks from OmniFocus inbox perspective", getInboxTasksTool);
+register("get_flagged_tasks", "Get flagged tasks from OmniFocus with optional project filtering", getFlaggedTasksTool);
+register("get_forecast_tasks", "Get tasks from OmniFocus forecast perspective (due/deferred tasks in date range)", getForecastTasksTool);
+register("get_tasks_by_tag", "Get tasks filtered by OmniFocus tags (labels like @home, @work, @urgent). Use this for tag-based filtering, NOT for custom perspective names. Tags are labels assigned to individual tasks.", getTasksByTagTool);
+register("filter_tasks", "Advanced task filtering with unlimited perspective combinations - status, dates, projects, tags, search, and more", filterTasksTool);
+register("list_custom_perspectives", "List all custom perspectives defined in OmniFocus", listCustomPerspectivesTool);
+register("get_custom_perspective_tasks", "Get tasks from a specific OmniFocus custom perspective by name. Use this when user refers to perspective names like '今日工作安排', '今日复盘', '本周项目' etc. - these are custom views created in OmniFocus, NOT tags. Supports hierarchical tree display of task relationships.", getCustomPerspectiveTasksTool);
 
 // Start the MCP server
 const transport = new StdioServerTransport();

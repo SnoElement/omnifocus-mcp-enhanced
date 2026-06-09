@@ -16,6 +16,12 @@ export const schema = z.object({
   sequential: z.boolean().optional().describe("Whether tasks in the project should be sequential (default: false)")
 });
 
+export const outputSchema = z.object({
+  success: z.boolean(),
+  projectId: z.string().optional(),
+  error: z.string().optional()
+});
+
 export async function handler(args: z.infer<typeof schema>, extra: RequestHandlerExtra<ServerRequest, ServerNotification>) {
   try {
     // Call the addProject function
@@ -47,15 +53,16 @@ export async function handler(args: z.infer<typeof schema>, extra: RequestHandle
         content: [{
           type: "text" as const,
           text: `✅ Project "${args.name}" created successfully ${locationText}${dueDateText}${plannedDateText}${tagText}${sequentialText}.\n\nid: ${result.projectId}`
-        }]
+        }],
+        structuredContent: { success: true, projectId: result.projectId }
       };
     } else {
-      // Project creation failed
       return {
         content: [{
           type: "text" as const,
           text: `Failed to create project: ${result.error}`
         }],
+        structuredContent: { success: false, error: result.error },
         isError: true
       };
     }
@@ -67,6 +74,7 @@ export async function handler(args: z.infer<typeof schema>, extra: RequestHandle
         type: "text" as const,
         text: `Error creating project: ${error.message}`
       }],
+      structuredContent: { success: false, error: error.message },
       isError: true
     };
   }
