@@ -31,7 +31,7 @@ export async function getTodayCompletedTasks(options: GetTodayCompletedTasksOpti
         throw new Error(data.error);
       }
 
-      let output = `# ✅ 今天完成的任务\\n\\n`;
+      let output = `# ✅ 今天完成的任务\n\n`;
 
       if (data.tasks && Array.isArray(data.tasks)) {
         const sorted = sortTasks(data.tasks, sortBy, sortOrder);
@@ -39,40 +39,40 @@ export async function getTodayCompletedTasks(options: GetTodayCompletedTasksOpti
         const limited = limit > 0 ? sorted.slice(0, limit) : sorted;
 
         if (limited.length === 0) {
-          output += "🎯 今天还没有完成任何任务。\\n";
-          output += "\\n**加油！** 完成一些任务来让这个列表变得丰富起来！\\n";
+          output += "🎯 今天还没有完成任何任务。\n";
+          output += "\n**加油！** 完成一些任务来让这个列表变得丰富起来！\n";
         } else {
           output += `🎉 恭喜！今天已完成 **${totalCount}** 个任务`;
           if (limited.length < totalCount) {
             output += `（显示前 ${limited.length} 个）`;
           }
-          output += `：\\n\\n`;
+          output += `：\n\n`;
 
           const tasksByProject = groupTasksByProject(limited);
 
           tasksByProject.forEach((tasks, projectName) => {
             if (tasksByProject.size > 1) {
-              output += `## 📁 ${projectName}\\n`;
+              output += `## 📁 ${projectName}\n`;
             }
 
             tasks.forEach((task: any) => {
               output += formatTask(task);
-              output += '\\n';
+              output += '\n';
             });
 
             if (tasksByProject.size > 1) {
-              output += '\\n';
+              output += '\n';
             }
           });
 
-          output += `\\n---\\n📊 **今日完成总结**: ${totalCount} 个任务已完成\\n`;
-          output += `📅 **查询时间**: ${new Date().toLocaleString()}\\n`;
+          output += `\n---\n📊 **今日完成总结**: ${totalCount} 个任务已完成\n`;
+          output += `📅 **查询时间**: ${new Date().toLocaleString()}\n`;
         }
 
         return { tasks: limited, totalCount, formatted: output };
       }
 
-      output += "无法获取任务数据\\n";
+      output += "无法获取任务数据\n";
       return { tasks: [], totalCount: 0, formatted: output };
     }
 
