@@ -43,6 +43,84 @@ export const outputSchema = z.object({
   error: z.string().optional()
 });
 
+const STRING_FIELD_MAX = 60;
+
+function truncateString(value: string): string {
+  return value.length > STRING_FIELD_MAX
+    ? `${value.slice(0, STRING_FIELD_MAX)}...`
+    : value;
+}
+
+function formatDateValue(value: string): string {
+  return value === '' ? 'cleared' : value;
+}
+
+export function formatUpdatedFields(args: z.infer<typeof schema>): string {
+  const parts: string[] = [];
+
+  if (args.newName !== undefined) {
+    parts.push(`name="${truncateString(args.newName)}"`);
+  }
+  if (args.newNote !== undefined) {
+    parts.push(`note="${truncateString(args.newNote)}"`);
+  }
+  if (args.newDueDate !== undefined) {
+    parts.push(`dueDate=${formatDateValue(args.newDueDate)}`);
+  }
+  if (args.newDeferDate !== undefined) {
+    parts.push(`deferDate=${formatDateValue(args.newDeferDate)}`);
+  }
+  if (args.newPlannedDate !== undefined) {
+    parts.push(`plannedDate=${formatDateValue(args.newPlannedDate)}`);
+  }
+  if (args.newFlagged !== undefined) {
+    parts.push(`flagged=${args.newFlagged}`);
+  }
+  if (args.newEstimatedMinutes !== undefined) {
+    parts.push(`estimatedMinutes=${args.newEstimatedMinutes}`);
+  }
+  if (args.newStatus !== undefined) {
+    parts.push(`status=${args.newStatus}`);
+  }
+
+  if (args.replaceTags !== undefined) {
+    parts.push(`tags=[${args.replaceTags.join(', ')}]`);
+  } else {
+    const tagOps: string[] = [];
+    if (args.addTags && args.addTags.length > 0) {
+      tagOps.push(`tags+=[${args.addTags.join(', ')}]`);
+    }
+    if (args.removeTags && args.removeTags.length > 0) {
+      tagOps.push(`tags-=[${args.removeTags.join(', ')}]`);
+    }
+    parts.push(...tagOps);
+  }
+
+  if (args.moveToInbox === true) {
+    parts.push('movedTo=inbox');
+  } else if (args.newProjectId !== undefined) {
+    parts.push(`movedTo=project(id="${truncateString(args.newProjectId)}")`);
+  } else if (args.newProjectName !== undefined) {
+    parts.push(`movedTo=project("${truncateString(args.newProjectName)}")`);
+  } else if (args.newParentTaskId !== undefined) {
+    parts.push(`movedTo=parentTask(id="${truncateString(args.newParentTaskId)}")`);
+  } else if (args.newParentTaskName !== undefined) {
+    parts.push(`movedTo=parentTask("${truncateString(args.newParentTaskName)}")`);
+  }
+
+  if (args.newSequential !== undefined) {
+    parts.push(`sequential=${args.newSequential}`);
+  }
+  if (args.newFolderName !== undefined) {
+    parts.push(`folder="${truncateString(args.newFolderName)}"`);
+  }
+  if (args.newProjectStatus !== undefined) {
+    parts.push(`status=${args.newProjectStatus}`);
+  }
+
+  return parts.join(', ');
+}
+
 export async function handler(args: z.infer<typeof schema>, extra: RequestHandlerExtra<ServerRequest, ServerNotification>) {
   try {
     // Validate that either id or name is provided
@@ -61,16 +139,15 @@ export async function handler(args: z.infer<typeof schema>, extra: RequestHandle
 
     if (result.success) {
       const itemTypeLabel = args.itemType === 'task' ? 'Task' : 'Project';
-      let changedText = '';
-
-      if (result.changedProperties) {
-        changedText = ` (${result.changedProperties})`;
-      }
+      const updatedFields = formatUpdatedFields(args);
+      const text = updatedFields
+        ? `✅ ${itemTypeLabel} "${result.name}" updated successfully.\nUpdated fields: ${updatedFields}`
+        : `✅ ${itemTypeLabel} "${result.name}" updated successfully.`;
 
       return {
         content: [{
           type: "text" as const,
-          text: `✅ ${itemTypeLabel} "${result.name}" updated successfully${changedText}.`
+          text
         }],
         structuredContent: {
           success: true,
