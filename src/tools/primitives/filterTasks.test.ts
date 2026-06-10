@@ -195,3 +195,68 @@ test('formatTask omits id line when task.id is missing', () => {
   assert.ok(!out.includes('🆔'));
 });
 
+
+test('tagFilter array applies OR semantics — task matches when any listed tag matches', () => {
+  const tasks = [
+    { id: '1', name: 'A', tags: [{ name: 'foo' }] },
+    { id: '2', name: 'B', tags: [{ name: 'bar' }] },
+    { id: '3', name: 'C', tags: [{ name: 'baz' }] },
+  ];
+  const out = applyClientSideFilters(tasks as any[], {
+    tagFilter: ['foo', 'bar'],
+    exactTagMatch: true,
+  });
+  assert.deepEqual(out.map(t => t.id).sort(), ['1', '2']);
+});
+
+test('tagFiltersAll applies AND semantics — task must match every listed tag', () => {
+  const tasks = [
+    { id: '1', name: 'A', tags: [{ name: 'sprint-12' }, { name: 'urgent' }] },
+    { id: '2', name: 'B', tags: [{ name: 'sprint-12' }] },
+    { id: '3', name: 'C', tags: [{ name: 'urgent' }] },
+  ];
+  const out = applyClientSideFilters(tasks as any[], {
+    tagFiltersAll: ['sprint-12', 'urgent'],
+    exactTagMatch: true,
+  });
+  assert.deepEqual(out.map(t => t.id), ['1']);
+});
+
+test('tagFilter (OR) and tagFiltersAll (AND) compose by intersection', () => {
+  const tasks = [
+    { id: '1', name: 'A', tags: [{ name: 'sprint-12' }, { name: 'jira:X' }] },
+    { id: '2', name: 'B', tags: [{ name: 'sprint-12' }, { name: 'jira:Y' }] },
+    { id: '3', name: 'C', tags: [{ name: 'sprint-13' }, { name: 'jira:X' }] },
+    { id: '4', name: 'D', tags: [{ name: 'sprint-12' }] },
+  ];
+  const out = applyClientSideFilters(tasks as any[], {
+    tagFiltersAll: ['sprint-12'],
+    tagFilter: ['jira:X', 'jira:Y'],
+    exactTagMatch: true,
+  });
+  assert.deepEqual(out.map(t => t.id).sort(), ['1', '2']);
+});
+
+test('exactTagMatch:false applies to tagFiltersAll', () => {
+  const tasks = [
+    { id: '1', name: 'A', tags: [{ name: 'otter-source-id:jira:CP20-4313' }, { name: 'reviewed' }] },
+    { id: '2', name: 'B', tags: [{ name: 'otter-source-id:jira:CP20-4313' }] },
+  ];
+  const out = applyClientSideFilters(tasks as any[], {
+    tagFiltersAll: ['CP20-4313', 'reviewed'],
+    exactTagMatch: false,
+  });
+  assert.deepEqual(out.map(t => t.id), ['1']);
+});
+
+test('tagFiltersAll on a task with no tags excludes the task', () => {
+  const tasks = [
+    { id: '1', name: 'A', tags: [] },
+    { id: '2', name: 'B', tags: [{ name: 'foo' }] },
+  ];
+  const out = applyClientSideFilters(tasks as any[], {
+    tagFiltersAll: ['foo'],
+    exactTagMatch: true,
+  });
+  assert.deepEqual(out.map(t => t.id), ['2']);
+});

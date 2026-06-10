@@ -26,8 +26,17 @@ export const schema = z.object({
 
   // 📁 项目/标签过滤
   projectFilter: z.string().optional().describe("Filter by project name (partial match)"),
-  tagFilter: z.union([z.string(), z.array(z.string())]).optional().describe("Filter by tag name(s). Can be single tag or array of tags"),
-  exactTagMatch: z.boolean().optional().describe("Set to true for exact tag name match, false for partial (default: false)"),
+  tagFilter: z.union([z.string(), z.array(z.string())]).optional().describe(
+    "Filter by tag name(s). Single string matches that one tag. " +
+    "Array matches tasks whose tags include ANY of the listed names (OR semantics). " +
+    "For AND semantics (task must have all listed tags), use tagFiltersAll instead."
+  ),
+  tagFiltersAll: z.array(z.string()).optional().describe(
+    "Match tasks whose tags include ALL of these names (AND semantics). " +
+    "Independent of tagFilter (OR) — when both are set, a task must match " +
+    "all of tagFiltersAll AND at least one of tagFilter."
+  ),
+  exactTagMatch: z.boolean().optional().describe("Set to true for exact tag name match, false for partial. Applies to both tagFilter and tagFiltersAll (default: false)"),
 
   // 📅 截止日期过滤
   dueBefore: z.string().optional().describe("Show tasks due before this date (ISO format: YYYY-MM-DD)"),

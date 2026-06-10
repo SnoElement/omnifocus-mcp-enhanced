@@ -22,6 +22,7 @@ export interface FilterTasksOptions {
   // 📁 项目/标签过滤
   projectFilter?: string;
   tagFilter?: string | string[];
+  tagFiltersAll?: string[];
   exactTagMatch?: boolean;
 
   // 📅 截止日期过滤
@@ -149,9 +150,24 @@ function matchesTagFilter(task: any, tagFilters: string[], exactTagMatch: boolea
   });
 }
 
+function matchesAllTagFilters(task: any, tagFilters: string[], exactTagMatch: boolean): boolean {
+  const taskTagNames = normalizeTaskTagNames(task);
+  if (taskTagNames.length === 0) return false;
+
+  return tagFilters.every(filterTag => {
+    return taskTagNames.some(taskTagName => {
+      if (exactTagMatch) {
+        return taskTagName === filterTag;
+      }
+      return taskTagName.includes(filterTag);
+    });
+  });
+}
+
 function shouldApplyClientSideFilters(options: FilterTasksOptions): boolean {
   return Boolean(
     options.tagFilter ||
+    (options.tagFiltersAll && options.tagFiltersAll.length > 0) ||
     options.deferToday ||
     options.deferThisWeek ||
     options.deferAvailable ||
@@ -196,6 +212,19 @@ export function applyClientSideFilters(tasks: any[], options: FilterTasksOptions
     if (normalizedFilters.length > 0) {
       filteredTasks = filteredTasks.filter(task =>
         matchesTagFilter(task, normalizedFilters, exactTagMatch)
+      );
+    }
+  }
+
+  if (options.tagFiltersAll && options.tagFiltersAll.length > 0) {
+    const exactTagMatch = options.exactTagMatch ?? false;
+    const normalizedFilters = options.tagFiltersAll
+      .map(tag => tag.trim().toLowerCase())
+      .filter(tag => tag.length > 0);
+
+    if (normalizedFilters.length > 0) {
+      filteredTasks = filteredTasks.filter(task =>
+        matchesAllTagFilters(task, normalizedFilters, exactTagMatch)
       );
     }
   }
