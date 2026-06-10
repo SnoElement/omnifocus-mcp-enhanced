@@ -1,5 +1,6 @@
 import { executeOmniFocusScript } from '../../utils/scriptExecution.js';
 import { sortTasks as sharedSortTasks } from '../../utils/taskSorting.js';
+import { formatTask as renderTask } from '../../utils/taskFormatter.js';
 
 export interface FilterTasksResult {
   tasks: any[];
@@ -430,7 +431,7 @@ export async function filterTasks(options: FilterTasksOptions = {}): Promise<Fil
             }
 
             tasks.forEach((task: any) => {
-              output += formatTask(task);
+              output += renderTask(task);
               output += '\n';
             });
 
@@ -536,91 +537,4 @@ function groupTasksByProject(tasks: any[]): Map<string, any[]> {
   return grouped;
 }
 
-// 格式化单个任务
-function formatTask(task: any): string {
-  let output = '';
-
-  // 任务基本信息
-  const flagSymbol = task.flagged ? '🚩 ' : '';
-  const statusEmoji = getStatusEmoji(task.taskStatus);
-
-  output += `${statusEmoji} ${flagSymbol}${task.name}`;
-
-  // 日期信息
-  const dateInfo: string[] = [];
-  if (task.dueDate) {
-    const dueDateStr = new Date(task.dueDate).toLocaleDateString();
-    const isOverdue = new Date(task.dueDate) < new Date();
-    dateInfo.push(isOverdue ? `⚠️ DUE: ${dueDateStr}` : `📅 DUE: ${dueDateStr}`);
-  }
-
-  if (task.deferDate) {
-    const deferDateStr = new Date(task.deferDate).toLocaleDateString();
-    dateInfo.push(`🚀 DEFER: ${deferDateStr}`);
-  }
-
-  if (task.plannedDate) {
-    const plannedDateStr = new Date(task.plannedDate).toLocaleDateString();
-    dateInfo.push(`🗓 PLAN: ${plannedDateStr}`);
-  }
-
-  if (task.completedDate) {
-    const completedDateStr = new Date(task.completedDate).toLocaleDateString();
-    dateInfo.push(`✅ DONE: ${completedDateStr}`);
-  }
-
-  if (dateInfo.length > 0) {
-    output += ` [${dateInfo.join(', ')}]`;
-  }
-
-  // 其他信息
-  const additionalInfo: string[] = [];
-
-  if (task.taskStatus && task.taskStatus !== 'Available') {
-    additionalInfo.push(task.taskStatus);
-  }
-
-  if (task.estimatedMinutes) {
-    const hours = Math.floor(task.estimatedMinutes / 60);
-    const minutes = task.estimatedMinutes % 60;
-    if (hours > 0) {
-      additionalInfo.push(`⏱ ${hours}h${minutes > 0 ? `${minutes}m` : ''}`);
-    } else {
-      additionalInfo.push(`⏱ ${minutes}m`);
-    }
-  }
-
-  if (additionalInfo.length > 0) {
-    output += ` (${additionalInfo.join(', ')})`;
-  }
-
-  output += '\n';
-
-  // 任务备注
-  if (task.note && task.note.trim()) {
-    output += `  📝 ${task.note.trim()}\n`;
-  }
-
-  // 标签
-  if (task.tags && task.tags.length > 0) {
-    const tagNames = task.tags.map((tag: any) => tag.name).join(', ');
-    output += `  🏷 ${tagNames}\n`;
-  }
-
-  return output;
-}
-
-// 获取状态对应的emoji
-function getStatusEmoji(status: string): string {
-  const statusMap: { [key: string]: string } = {
-    Available: '⚪',
-    Next: '🔵',
-    Blocked: '🔴',
-    DueSoon: '🟡',
-    Overdue: '🔴',
-    Completed: '✅',
-    Dropped: '⚫'
-  };
-
-  return statusMap[status] || '⚪';
-}
+export { renderTask as formatTask };

@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { applyClientSideFilters } from './filterTasks.js';
+import { applyClientSideFilters, formatTask } from './filterTasks.js';
 
 function isoWithOffset(daysOffset: number): string {
   const d = new Date();
@@ -184,3 +184,14 @@ test('applyClientSideFilters combines addedAfter with modifiedAfter (intersectio
   assert.equal(filtered.length, 1);
   assert.equal(filtered[0].id, 'new-task');
 });
+
+test('formatTask includes task id when present', () => {
+  const out = formatTask({ id: 'aQ6326380mb', name: 'X', flagged: false });
+  assert.ok(out.includes('🆔 aQ6326380mb'));
+});
+
+test('formatTask omits id line when task.id is missing', () => {
+  const out = formatTask({ name: 'X', flagged: false });
+  assert.ok(!out.includes('🆔'));
+});
+

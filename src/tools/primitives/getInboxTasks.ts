@@ -1,5 +1,6 @@
 import { executeOmniFocusScript } from '../../utils/scriptExecution.js';
 import { sortTasks, TaskSortField, TaskSortOrder } from '../../utils/taskSorting.js';
+import { formatTask } from '../../utils/taskFormatter.js';
 
 export interface GetInboxTasksOptions {
   hideCompleted?: boolean;
@@ -50,16 +51,7 @@ export async function getInboxTasks(options: GetInboxTasksOptions = {}): Promise
           output += ':\n\n';
 
           limited.forEach((task: any, index: number) => {
-            const flagSymbol = task.flagged ? '🚩 ' : '';
-            const dueDateStr = task.dueDate ? ` [DUE: ${new Date(task.dueDate).toLocaleDateString()}]` : '';
-            const plannedDateStr = task.plannedDate ? ` [PLAN: ${new Date(task.plannedDate).toLocaleDateString()}]` : '';
-            const statusStr = task.taskStatus !== 'Available' ? ` (${task.taskStatus})` : '';
-
-            output += `${index + 1}. ${flagSymbol}${task.name}${dueDateStr}${plannedDateStr}${statusStr}\n`;
-
-            if (task.note && task.note.trim()) {
-              output += `   📝 ${task.note.trim()}\n`;
-            }
+            output += formatTask(task, { index });
           });
         }
 
@@ -75,4 +67,8 @@ export async function getInboxTasks(options: GetInboxTasksOptions = {}): Promise
     console.error('Error in getInboxTasks:', error);
     throw new Error(`Failed to get inbox tasks: ${error instanceof Error ? error.message : 'Unknown error'}`);
   }
+}
+
+export function formatInboxTask(task: any, index: number): string {
+  return formatTask(task, { index });
 }

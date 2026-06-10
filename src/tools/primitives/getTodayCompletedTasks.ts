@@ -1,5 +1,6 @@
 import { executeOmniFocusScript } from '../../utils/scriptExecution.js';
 import { sortTasks, TaskSortField, TaskSortOrder } from '../../utils/taskSorting.js';
+import { formatTask } from '../../utils/taskFormatter.js';
 
 export interface GetTodayCompletedTasksOptions {
   limit?: number;
@@ -55,7 +56,7 @@ export async function getTodayCompletedTasks(options: GetTodayCompletedTasksOpti
             }
 
             tasks.forEach((task: any) => {
-              output += formatCompletedTask(task);
+              output += formatTask(task);
               output += '\\n';
             });
 
@@ -82,69 +83,17 @@ export async function getTodayCompletedTasks(options: GetTodayCompletedTasksOpti
   }
 }
 
-// 按项目分组任务
 function groupTasksByProject(tasks: any[]): Map<string, any[]> {
   const grouped = new Map<string, any[]>();
-  
+
   tasks.forEach(task => {
     const projectName = task.projectName || (task.inInbox ? '📥 收件箱' : '📂 无项目');
-    
+
     if (!grouped.has(projectName)) {
       grouped.set(projectName, []);
     }
     grouped.get(projectName)!.push(task);
   });
-  
-  return grouped;
-}
 
-// 格式化单个完成任务
-function formatCompletedTask(task: any): string {
-  let output = '';
-  
-  // 任务基本信息
-  const flagSymbol = task.flagged ? '🚩 ' : '';
-  
-  output += `✅ ${flagSymbol}${task.name}`;
-  
-  // 完成时间
-  if (task.completedDate) {
-    const completedTime = new Date(task.completedDate).toLocaleTimeString('zh-CN', {
-      hour: '2-digit',
-      minute: '2-digit'
-    });
-    output += ` *(${completedTime}完成)*`;
-  }
-  
-  // 其他信息
-  const additionalInfo: string[] = [];
-  
-  if (task.estimatedMinutes) {
-    const hours = Math.floor(task.estimatedMinutes / 60);
-    const minutes = task.estimatedMinutes % 60;
-    if (hours > 0) {
-      additionalInfo.push(`⏱ ${hours}h${minutes > 0 ? `${minutes}m` : ''}`);
-    } else {
-      additionalInfo.push(`⏱ ${minutes}m`);
-    }
-  }
-  
-  if (additionalInfo.length > 0) {
-    output += ` (${additionalInfo.join(', ')})`;
-  }
-  
-  output += '\\n';
-  
-  // 任务备注
-  if (task.note && task.note.trim()) {
-    output += `  📝 ${task.note.trim()}\\n`;
-  }
-  
-  // 标签
-  if (task.tags && task.tags.length > 0) {
-    const tagNames = task.tags.map((tag: any) => tag.name).join(', ');
-    output += `  🏷 ${tagNames}\\n`;
-  }
-  
-  return output;
+  return grouped;
 }

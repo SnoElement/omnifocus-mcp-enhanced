@@ -1,5 +1,6 @@
 import { executeOmniFocusScript } from '../../utils/scriptExecution.js';
 import { sortTasks, TaskSortField, TaskSortOrder } from '../../utils/taskSorting.js';
+import { formatTask } from '../../utils/taskFormatter.js';
 
 export interface GetForecastTasksOptions {
   days?: number;
@@ -83,17 +84,7 @@ export async function getForecastTasks(options: GetForecastTasksOptions = {}): P
           output += `${dateHeader}\n`;
 
           tasks.forEach((task: any) => {
-            const flagSymbol = task.flagged ? '🚩 ' : '';
-            const projectStr = task.projectName ? ` (${task.projectName})` : ' (Inbox)';
-            const statusStr = task.taskStatus !== 'Available' ? ` [${task.taskStatus}]` : '';
-            const estimateStr = task.estimatedMinutes ? ` ⏱${task.estimatedMinutes}m` : '';
-            const typeIndicator = task.isDue ? '📅' : '🚀';
-
-            output += `• ${typeIndicator} ${flagSymbol}${task.name}${projectStr}${statusStr}${estimateStr}\n`;
-
-            if (task.note && task.note.trim()) {
-              output += `  📝 ${task.note.trim()}\n`;
-            }
+            output += formatTask(task);
           });
 
           output += '\n';
