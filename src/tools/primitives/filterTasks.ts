@@ -21,6 +21,7 @@ export interface FilterTasksOptions {
 
   // 📁 项目/标签过滤
   projectFilter?: string;
+  projectFilters?: string[];
   tagFilter?: string | string[];
   tagFiltersAll?: string[];
   exactTagMatch?: boolean;
@@ -164,10 +165,17 @@ function matchesAllTagFilters(task: any, tagFilters: string[], exactTagMatch: bo
   });
 }
 
+function matchesAnyProjectFilter(task: any, projectFilters: string[]): boolean {
+  const projectName = typeof task?.projectName === 'string' ? task.projectName.toLowerCase() : '';
+  if (!projectName) return false;
+  return projectFilters.some(filter => projectName.includes(filter));
+}
+
 function shouldApplyClientSideFilters(options: FilterTasksOptions): boolean {
   return Boolean(
     options.tagFilter ||
     (options.tagFiltersAll && options.tagFiltersAll.length > 0) ||
+    (options.projectFilters && options.projectFilters.length > 0) ||
     options.deferToday ||
     options.deferThisWeek ||
     options.deferAvailable ||
@@ -225,6 +233,18 @@ export function applyClientSideFilters(tasks: any[], options: FilterTasksOptions
     if (normalizedFilters.length > 0) {
       filteredTasks = filteredTasks.filter(task =>
         matchesAllTagFilters(task, normalizedFilters, exactTagMatch)
+      );
+    }
+  }
+
+  if (options.projectFilters && options.projectFilters.length > 0) {
+    const normalizedFilters = options.projectFilters
+      .map(name => name.trim().toLowerCase())
+      .filter(name => name.length > 0);
+
+    if (normalizedFilters.length > 0) {
+      filteredTasks = filteredTasks.filter(task =>
+        matchesAnyProjectFilter(task, normalizedFilters)
       );
     }
   }

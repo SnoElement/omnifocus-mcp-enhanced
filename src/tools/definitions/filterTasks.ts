@@ -25,7 +25,15 @@ export const schema = z.object({
   perspective: PerspectiveEnum.optional().describe("Limit search to specific perspective: inbox, flagged, all tasks"),
 
   // 📁 项目/标签过滤
-  projectFilter: z.string().optional().describe("Filter by project name (partial match)"),
+  projectFilter: z.string().optional().describe(
+    "Filter by project name (single substring, case-insensitive partial match). " +
+    "For matching multiple projects, use projectFilters."
+  ),
+  projectFilters: z.array(z.string()).optional().describe(
+    "Match tasks whose project name matches ANY of these names (OR semantics, " +
+    "case-insensitive partial match). Independent of projectFilter — when both " +
+    "are set, a task must match projectFilter AND at least one of projectFilters."
+  ),
   tagFilter: z.union([z.string(), z.array(z.string())]).optional().describe(
     "Filter by tag name(s). Single string matches that one tag. " +
     "Array matches tasks whose tags include ANY of the listed names (OR semantics). " +

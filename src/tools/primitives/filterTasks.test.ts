@@ -260,3 +260,52 @@ test('tagFiltersAll on a task with no tags excludes the task', () => {
   });
   assert.deepEqual(out.map(t => t.id), ['2']);
 });
+
+test('projectFilters matches a task whose projectName contains any of the filter names', () => {
+  const tasks = [
+    { id: '1', name: 'A', projectName: 'Marketing 2026', tags: [] },
+    { id: '2', name: 'B', projectName: 'Engineering Q2', tags: [] },
+    { id: '3', name: 'C', projectName: 'Sales Pipeline', tags: [] },
+  ];
+  const out = applyClientSideFilters(tasks as any[], {
+    projectFilters: ['marketing', 'engineering'],
+  });
+  assert.deepEqual(out.map(t => t.id).sort(), ['1', '2']);
+});
+
+test('projectFilters is case-insensitive partial match', () => {
+  const tasks = [
+    { id: '1', name: 'A', projectName: 'Customer Onboarding', tags: [] },
+    { id: '2', name: 'B', projectName: 'Internal Tooling', tags: [] },
+  ];
+  const out = applyClientSideFilters(tasks as any[], {
+    projectFilters: ['CUSTOMER'],
+  });
+  assert.deepEqual(out.map(t => t.id), ['1']);
+});
+
+test('projectFilters excludes tasks with no projectName (e.g. inbox)', () => {
+  const tasks = [
+    { id: '1', name: 'A', projectName: 'Marketing', tags: [] },
+    { id: '2', name: 'B', projectName: null, inInbox: true, tags: [] },
+    { id: '3', name: 'C', tags: [] },
+  ];
+  const out = applyClientSideFilters(tasks as any[], {
+    projectFilters: ['marketing'],
+  });
+  assert.deepEqual(out.map(t => t.id), ['1']);
+});
+
+test('projectFilters composes with tagFilter via intersection', () => {
+  const tasks = [
+    { id: '1', name: 'A', projectName: 'Marketing', tags: [{ name: 'urgent' }] },
+    { id: '2', name: 'B', projectName: 'Engineering', tags: [{ name: 'urgent' }] },
+    { id: '3', name: 'C', projectName: 'Marketing', tags: [{ name: 'low' }] },
+  ];
+  const out = applyClientSideFilters(tasks as any[], {
+    projectFilters: ['marketing', 'engineering'],
+    tagFilter: ['urgent'],
+    exactTagMatch: true,
+  });
+  assert.deepEqual(out.map(t => t.id).sort(), ['1', '2']);
+});
